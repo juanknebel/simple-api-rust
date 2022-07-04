@@ -1,6 +1,6 @@
 use crate::schema::logins;
 
-use diesel::{Insertable, Queryable, Identifiable};
+use diesel::{Identifiable, Insertable, Queryable};
 use serde::{Deserialize, Serialize};
 
 #[derive(Identifiable, Queryable, Serialize)]

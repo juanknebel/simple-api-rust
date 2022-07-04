@@ -11,8 +11,8 @@ mod model;
 mod schema;
 
 use application::health_handler;
-use application::user_handler;
 use application::message_handler;
+use application::user_handler;
 use rocket::routes;
 use rocket_contrib::databases::{database, diesel::SqliteConnection};
 

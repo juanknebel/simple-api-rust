@@ -1,11 +1,10 @@
-use std::collections::HashMap;
 use rocket::http::hyper::StatusCode;
 use rocket::Responder;
 use rocket_contrib::json::Json;
 use serde::Serialize;
+use std::collections::HashMap;
 
 pub type GenericResponse = HashMap<&'static str, &'static str>;
-
 
 #[derive(Debug, Serialize, Responder)]
 pub struct ErrorResponse {

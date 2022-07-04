@@ -1,11 +1,12 @@
+use std::borrow::Borrow;
 use rocket::http::hyper::StatusCode;
 use rocket::response::status::{Accepted, Created};
 use rocket_contrib::json::Json;
 use serde::{Deserialize, Serialize};
 
-use crate::DbConnection;
 use crate::infrastructure::responses::{Error, ErrorResponse};
 use crate::model::user_service;
+use crate::DbConnection;
 
 /// Handles the creation of a new user.
 ///
@@ -21,7 +22,7 @@ pub fn create_user(
     new_user_dto: Json<UserDto>,
 ) -> Result<Created<Json<UserDto>>, Error> {
     let result = user_service::create_user(
-        conn,
+        conn.borrow(),
         new_user_dto.username.to_string(),
         new_user_dto.password.to_string(),
     );
@@ -56,18 +57,18 @@ pub fn login(
     user_dto: Json<UserDto>,
 ) -> Result<Accepted<Json<LoginDto>>, Error> {
     let new_login_result = user_service::login(
-        conn,
+        conn.borrow(),
         user_dto.username.to_string(),
         user_dto.password.to_string(),
     );
-    match  new_login_result {
+    match new_login_result {
         Ok(login) => {
             let dto = LoginDto {
                 token: login.get_token(),
-                id: login.get_id()
+                id: login.get_id(),
             };
             Ok(Accepted(Option::from(Json(dto))))
-        },
+        }
         Err(_) => {
             let err_msg = String::from("Invalid credentials");
             print!("{}", err_msg);

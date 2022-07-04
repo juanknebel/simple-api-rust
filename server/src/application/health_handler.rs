@@ -1,10 +1,9 @@
-use diesel::prelude::*;
+use std::borrow::Borrow;
 use rocket::http::hyper::StatusCode;
 use rocket::response::status::Accepted;
 
 use crate::infrastructure::responses::{Error, ErrorResponse};
-use crate::schema::users;
-use crate::schema::users::id;
+use crate::model::user_service;
 use crate::DbConnection;
 
 /// Implements a pong end point.
@@ -14,8 +13,7 @@ use crate::DbConnection;
 /// * 500 and the error message.
 #[get("/ping")]
 pub fn ping(conn: DbConnection) -> Result<Accepted<String>, Error> {
-    let result: Result<usize, diesel::result::Error> = users::table
-        .select(id).count().execute(&*conn);
+    let result = user_service::total(conn.borrow());
 
     match result {
         Ok(_) => Ok(Accepted(Option::from(String::from("pong")))),
