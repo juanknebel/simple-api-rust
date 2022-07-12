@@ -9,6 +9,7 @@ mod application;
 mod infrastructure;
 mod model;
 mod schema;
+mod auth;
 
 use application::health_handler;
 use application::message_handler;

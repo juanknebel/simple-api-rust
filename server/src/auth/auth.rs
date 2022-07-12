@@ -1,0 +1,29 @@
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use serde::{Deserialize, Serialize};
+use chrono::prelude::*;
+
+use crate::infrastructure::error::Error;
+
+const BEARER: &str = "Bearer ";
+const JWT_SECRET: &[u8] = b"my very super secret";
+
+#[derive(Debug, Deserialize, Serialize)]
+struct Claims {
+    sub: i32,
+    exp: usize,
+}
+
+pub fn create_jwt(uid: i32) -> Result<String, Error> {
+    let expiration = Utc::now()
+        .checked_add_signed(chrono::Duration::days(1))
+        .expect("valid timestamp")
+        .timestamp();
+
+    let claims = Claims {
+        sub: uid.to_owned(),
+        exp: expiration as usize,
+    };
+    let header = Header::new(Algorithm::HS512);
+    encode(&header, &claims, &EncodingKey::from_secret(JWT_SECRET))
+        .map_err(|_| Error::JWTTokenCreationError)
+}

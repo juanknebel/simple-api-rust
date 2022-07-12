@@ -11,7 +11,7 @@ pub struct User {
 }
 
 impl User {
-    pub fn get_id(self) -> i32 {
+    pub fn get_id(&self) -> i32 {
         return self.id;
     }
     pub fn get_username(&self) -> String {

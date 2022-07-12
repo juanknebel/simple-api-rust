@@ -6,6 +6,7 @@ use crate::model::login::{Login, NewLogin};
 use crate::model::repository::{login_repository, user_repository};
 use crate::model::user::{NewUser, User};
 use crate::DbConnection;
+use crate::auth::auth;
 
 /// Creates a new user based and generates the password's hash.
 ///
@@ -35,7 +36,7 @@ pub fn login(conn: &DbConnection, username: String, password: String) -> Result<
     let user_result = user_repository::find(conn.borrow(), search_user);
     match user_result {
         Ok(user) => {
-            let token = create_token();
+            let token = create_token(user.get_id());
             let new_login = NewLogin::new(user.get_username(), token);
             let login = login_repository::add(conn.borrow(), new_login);
             Ok(login.unwrap())
@@ -44,8 +45,8 @@ pub fn login(conn: &DbConnection, username: String, password: String) -> Result<
     }
 }
 
-fn create_token() -> String {
-    return String::from("ble")
+fn create_token(id: i32) -> String {
+    auth::create_jwt(id).unwrap()
 }
 
 pub fn total(conn: &DbConnection) -> Result<i64, String> {
