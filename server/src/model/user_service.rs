@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use sha2::{Digest, Sha256};
 
-use crate::auth::auth;
+use crate::auth::token;
 use crate::model::login::{Login, NewLogin};
 use crate::model::repository::{login_repository, user_repository};
 use crate::model::user::{NewUser, User};
@@ -46,7 +46,7 @@ pub fn login(conn: &DbConnection, username: String, password: String) -> Result<
 }
 
 fn create_token(id: i32) -> String {
-    auth::create_jwt(id).unwrap()
+    token::create_jwt(id).unwrap()
 }
 
 pub fn total(conn: &DbConnection) -> Result<i64, String> {

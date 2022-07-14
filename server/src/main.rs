@@ -26,6 +26,6 @@ fn main() {
         .mount("/", routes![health_handler::ping,])
         .mount("/users", routes![user_handler::create_user,])
         .mount("/login", routes![user_handler::login,])
-        .mount("/message", routes![message_handler::send_message,])
+        .mount("/message", routes![message_handler::send_message, message_handler::get_message])
         .launch();
 }

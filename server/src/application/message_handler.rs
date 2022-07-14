@@ -1,10 +1,10 @@
 use rocket::http::hyper::StatusCode;
 use std::borrow::Borrow;
 
-use crate::application::middleware::AccessToken;
-use rocket::response::status::Created;
+use crate::auth::middleware::AccessToken;
+use rocket::response::status::{Accepted, Created};
 use rocket_contrib::json::Json;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::infrastructure::responses::{Error, ErrorResponse, GenericResponse};
 use crate::model::message_service;
@@ -52,11 +52,40 @@ pub fn send_message(
     }
 }
 
+#[get("/<id>")]
+pub fn get_message(
+    token: AccessToken,
+    id: i32,
+    conn: DbConnection,
+) -> Result<Accepted<Json<ResponseMessageDto>>, Error> {
+    let result_msg = message_service::get_message(conn.borrow(), id);
+    match result_msg {
+        Ok(msg) => {
+            let dto = ResponseMessageDto {
+                message: msg.get_message(),
+            };
+            Ok(Accepted(Option::from(Json(dto))))
+        }
+        Err(err) => {
+            let err_msg = format!("Cannot retrieve the message because {}", err);
+            Err(ErrorResponse::create_error(
+                &err_msg,
+                StatusCode::BadRequest,
+            ))
+        }
+    }
+}
+
 #[derive(Deserialize)]
 pub struct MessageDto {
     pub from: i32,
     pub to: i32,
     pub message: String,
+}
+
+#[derive(Serialize)]
+pub struct ResponseMessageDto {
+    message: String,
 }
 
 fn is_valid(conn: &DbConnection, token: &AccessToken, id_user: i32) -> bool {

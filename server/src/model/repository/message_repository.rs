@@ -34,3 +34,11 @@ fn find_latest_msg(conn: &DbConnection, from_user: i32) -> Result<Message, Strin
         Err(err) => Err(err.to_string()),
     }
 }
+
+pub fn get(conn: &DbConnection, id_msg: i32) -> Result<Message, String> {
+    let get_result = messages::table.find(id_msg).get_result(conn.deref());
+    match get_result {
+        Ok(msg) => Ok(msg),
+        Err(err) => Err(err.to_string()),
+    }
+}

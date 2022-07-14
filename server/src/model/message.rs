@@ -14,6 +14,9 @@ impl Message {
     pub fn get_id(&self) -> i32 {
         return self.id;
     }
+    pub fn get_message(&self) -> String {
+        return self.message.to_string();
+    }
 }
 
 #[derive(Insertable, Deserialize)]
