@@ -1,6 +1,6 @@
-use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
-use serde::{Deserialize, Serialize};
 use chrono::prelude::*;
+use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use serde::{Deserialize, Serialize};
 
 use crate::infrastructure::error::Error;
 
@@ -24,6 +24,7 @@ pub fn create_jwt(uid: i32) -> Result<String, Error> {
         exp: expiration as usize,
     };
     let header = Header::new(Algorithm::HS512);
-    encode(&header, &claims, &EncodingKey::from_secret(JWT_SECRET))
-        .map_err(|_| Error::JWTTokenCreationError)
+    let token_result = encode(&header, &claims, &EncodingKey::from_secret(JWT_SECRET))
+        .map_err(|_| Error::JWTTokenCreationError);
+    token_result
 }

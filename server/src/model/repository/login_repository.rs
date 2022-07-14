@@ -29,11 +29,12 @@ pub fn add(conn: &DbConnection, new_login: NewLogin) -> Result<Login, String> {
 }
 
 pub fn exist(conn: &DbConnection, the_username: String, the_token: &str) -> Result<bool, String> {
-    let result: QueryResult<i64> = logins::table.filter(
-        username.eq(the_username).and(token.eq(the_token))
-    ).count().get_result(conn.deref());
+    let result: QueryResult<i64> = logins::table
+        .filter(username.eq(the_username).and(token.eq(the_token)))
+        .count()
+        .get_result(conn.deref());
     match result {
         Ok(count) => Ok(count > 0),
-        Err(err) => Err(err.to_string())
+        Err(err) => Err(err.to_string()),
     }
 }

@@ -6,10 +6,10 @@ extern crate rocket;
 extern crate diesel;
 
 mod application;
+mod auth;
 mod infrastructure;
 mod model;
 mod schema;
-mod auth;
 
 use application::health_handler;
 use application::message_handler;

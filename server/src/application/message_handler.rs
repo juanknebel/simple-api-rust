@@ -7,6 +7,7 @@ use rocket_contrib::json::Json;
 use serde::Deserialize;
 
 use crate::infrastructure::responses::{Error, ErrorResponse, GenericResponse};
+use crate::model::message_service;
 use crate::model::user_service;
 use crate::DbConnection;
 
@@ -16,15 +17,33 @@ pub fn send_message(
     conn: DbConnection,
     msg_dto: Json<MessageDto>,
 ) -> Result<Created<Json<GenericResponse>>, Error> {
-    let can_access = is_valid(token.borrow(), msg_dto.from, conn);
+    let can_access = is_valid(conn.borrow(), token.borrow(), msg_dto.from);
     match can_access {
         true => {
-            let mut response = GenericResponse::new();
-            response.insert("id", "1");
-            Ok(Created(
-                format!("/messages/user/{}", msg_dto.to),
-                Option::from(Json(response)),
-            ))
+            let result = message_service::create_message(
+                conn.borrow(),
+                msg_dto.from,
+                msg_dto.to,
+                msg_dto.message.to_string(),
+            );
+            match result {
+                Ok(msg_id) => {
+                    let mut response = GenericResponse::new();
+                    response.insert(String::from("id"), msg_id.to_string());
+                    Ok(Created(
+                        format!("/message/{}", msg_id),
+                        Option::from(Json(response)),
+                    ))
+                }
+                Err(err) => {
+                    let err_msg = format!("Cannot insert the message because {}", err);
+                    print!("{}", err_msg);
+                    Err(ErrorResponse::create_error(
+                        &err_msg,
+                        StatusCode::BadRequest,
+                    ))
+                }
+            }
         }
         false => Err(ErrorResponse::create_error(
             "Access denied",
@@ -40,7 +59,7 @@ pub struct MessageDto {
     pub message: String,
 }
 
-fn is_valid(token: &AccessToken, id_user: i32, conn: DbConnection) -> bool {
+fn is_valid(conn: &DbConnection, token: &AccessToken, id_user: i32) -> bool {
     let user_result = user_service::get(conn.borrow(), id_user);
     match user_result {
         Ok(user) => {

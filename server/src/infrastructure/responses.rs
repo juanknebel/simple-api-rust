@@ -4,7 +4,7 @@ use rocket_contrib::json::Json;
 use serde::Serialize;
 use std::collections::HashMap;
 
-pub type GenericResponse = HashMap<&'static str, &'static str>;
+pub type GenericResponse = HashMap<String, String>;
 
 #[derive(Debug, Serialize, Responder)]
 pub struct ErrorResponse {

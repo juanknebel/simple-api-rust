@@ -1,8 +1,8 @@
-use std::borrow::Borrow;
 use rocket::http::hyper::StatusCode;
 use rocket::response::status::{Accepted, Created};
 use rocket_contrib::json::Json;
 use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
 
 use crate::infrastructure::responses::{Error, ErrorResponse};
 use crate::model::user_service;

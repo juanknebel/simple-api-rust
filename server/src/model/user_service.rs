@@ -2,11 +2,11 @@ use std::borrow::Borrow;
 
 use sha2::{Digest, Sha256};
 
+use crate::auth::auth;
 use crate::model::login::{Login, NewLogin};
 use crate::model::repository::{login_repository, user_repository};
 use crate::model::user::{NewUser, User};
 use crate::DbConnection;
-use crate::auth::auth;
 
 /// Creates a new user based and generates the password's hash.
 ///

@@ -7,6 +7,15 @@ table! {
 }
 
 table! {
+    messages (id) {
+        id -> Integer,
+        from -> Integer,
+        to -> Integer,
+        message -> Text,
+    }
+}
+
+table! {
     users (id) {
         id -> Integer,
         username -> Text,
@@ -14,4 +23,4 @@ table! {
     }
 }
 
-allow_tables_to_appear_in_same_query!(logins, users,);
+allow_tables_to_appear_in_same_query!(logins, messages, users,);
