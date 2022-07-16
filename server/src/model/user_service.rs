@@ -28,10 +28,7 @@ pub fn create_user(
 ) -> Result<i32, String> {
   let hashed = calculate_hash(password);
   let new_user = NewUser::new(username, hashed);
-  match user_repository::add(conn.borrow(), new_user) {
-    Ok(user_id) => Ok(user_id),
-    Err(err) => Err(err.to_string()),
-  }
+  user_repository::add(conn.borrow(), new_user).map_err(|err| err.to_string())
 }
 
 fn calculate_hash(password: String) -> String {
@@ -65,17 +62,11 @@ fn create_token(id: i32) -> String {
 }
 
 pub fn total(conn: &DbConnection) -> Result<i64, String> {
-  match user_repository::total(conn.borrow()) {
-    Ok(total) => Ok(total),
-    Err(err) => Err(err.to_string()),
-  }
+  user_repository::total(conn.borrow()).map_err(|err| err.to_string())
 }
 
 pub fn get(conn: &DbConnection, id: i32) -> Result<User, String> {
-  match user_repository::get(conn.borrow(), id) {
-    Ok(user) => Ok(user),
-    Err(err) => Err(err.to_string()),
-  }
+  user_repository::get(conn.borrow(), id).map_err(|err| err.to_string())
 }
 
 pub fn is_same_token(
@@ -83,8 +74,6 @@ pub fn is_same_token(
   token: &str,
   user: &User,
 ) -> Result<bool, String> {
-  match login_repository::exist(conn.borrow(), user.get_username(), token) {
-    Ok(is_same) => Ok(is_same),
-    Err(err) => Err(err.to_string()),
-  }
+  login_repository::exist(conn.borrow(), user.get_username(), token)
+    .map_err(|err| err.to_string())
 }
