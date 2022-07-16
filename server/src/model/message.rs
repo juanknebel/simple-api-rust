@@ -17,6 +17,9 @@ impl Message {
     pub fn get_message(&self) -> String {
         return self.message.to_string();
     }
+    pub fn get_to(&self) -> i32 {
+        return self.to;
+    }
 }
 
 #[derive(Insertable, Deserialize)]

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::infrastructure::error::Error;
 
-const BEARER: &str = "Bearer ";
+//const BEARER: &str = "Bearer ";
 const JWT_SECRET: &[u8] = b"my very super secret";
 
 #[derive(Debug, Deserialize, Serialize)]
