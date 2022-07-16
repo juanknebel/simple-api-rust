@@ -93,15 +93,14 @@ pub fn get_message_from(
         msg_dto.limit.unwrap(),
       ) {
         Ok(messages) => {
-          let mut messages_dto = Vec::new();
-          for a_msg in messages.iter() {
-            let a_msg_dto = ResponseMessageDto {
+          let messages_dto = messages
+            .iter()
+            .map(|a_msg| ResponseMessageDto {
               id: Option::from(a_msg.get_id()),
               to: Option::from(a_msg.get_to()),
               message: a_msg.get_message(),
-            };
-            messages_dto.push(a_msg_dto);
-          }
+            })
+            .collect::<Vec<ResponseMessageDto>>();
           Ok(Accepted(Option::from(Json(messages_dto))))
         },
         Err(err) => {
