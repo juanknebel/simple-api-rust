@@ -36,8 +36,8 @@ pub fn send_message(
           ))
         },
         Err(err) => {
+          log::error!("error: {}", err.to_string());
           let err_msg = format!("Cannot insert the message because {}", err);
-          print!("{}", err_msg);
           Err(ErrorResponse::create_error(
             &err_msg,
             StatusCode::BadRequest,
@@ -69,6 +69,7 @@ pub fn get_message(
       Ok(Accepted(Option::from(Json(dto))))
     },
     Err(err) => {
+      log::error!("error: {}", err.to_string());
       let err_msg = format!("Cannot retrieve the message because {}", err);
       Err(ErrorResponse::create_error(
         &err_msg,
@@ -104,8 +105,8 @@ pub fn get_message_from(
           Ok(Accepted(Option::from(Json(messages_dto))))
         },
         Err(err) => {
+          log::error!("error: {}", err.to_string());
           let err_msg = format!("Cannot retrieve the messages because {}", err);
-          print!("{}", err_msg);
           Err(ErrorResponse::create_error(
             &err_msg,
             StatusCode::BadRequest,
@@ -113,10 +114,13 @@ pub fn get_message_from(
         },
       }
     },
-    false => Err(ErrorResponse::create_error(
-      "Access denied",
-      StatusCode::Unauthorized,
-    )),
+    false => {
+      log::error!("error: Access denied");
+      Err(ErrorResponse::create_error(
+        "Access denied",
+        StatusCode::Unauthorized,
+      ))
+    },
   }
 }
 
@@ -148,13 +152,13 @@ fn is_valid(conn: &DbConnection, token: &AccessToken, id_user: i32) -> bool {
       match token_belong_to_user {
         Ok(is_valid_token) => is_valid_token,
         Err(err) => {
-          println!("Error {}", err.to_string());
+          log::debug!("error: {}", err.to_string());
           false
         },
       }
     },
     Err(err) => {
-      println!("Error {}", err.to_string());
+      log::debug!("error: {}", err.to_string());
       false
     },
   }

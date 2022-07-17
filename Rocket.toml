@@ -3,10 +3,13 @@ log_level = "debug"
 address = "127.0.0.1"
 port = 8081
 
+[development.databases]
+sqlite = {url = "./database/testing_db.db"}
+
 [production]
 log_level = "critical"
 address = "127.0.0.1"
 port = 8081
 
-[global.databases]
-sqlite = {url = "./database/testing_db.db"}
+[production.databases]
+sqlite = {url = "./database/production_db.db"}

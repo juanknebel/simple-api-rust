@@ -37,9 +37,8 @@ impl<'a, 'r> FromRequest<'a, 'r> for AccessToken {
   fn from_request(request: &'a Request<'r>) -> Outcome<Self, Self::Error> {
     let tokens: Vec<&str> = request.headers().get("x-access-token").collect();
     let route = request.route().unwrap();
-    println!("{}", route.name.unwrap());
     let uri = request.uri();
-    println!("{}", uri.path());
+    log::debug!("uri: {}, method: {}", uri.path(), route.name.unwrap());
 
     match tokens.len() {
       0 => Outcome::Failure((Status::BadRequest, AccessTokenError::Missing)),

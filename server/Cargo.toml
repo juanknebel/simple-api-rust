@@ -8,6 +8,9 @@ name = "server"
 path = "src/main.rs"
 
 [dependencies]
+log = {version = "0.4.17", features = ["std", "serde", "max_level_debug", "release_max_level_warn"]}
+async-log = "2.0.0"
+fern = "0.6.1"
 serde = { version = "1.0.137", features = ["derive"]}
 rocket = { version = "0.4.10" }
 diesel = { version = "1.4.8", features = ["sqlite"] }

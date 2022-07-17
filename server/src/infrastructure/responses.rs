@@ -17,6 +17,10 @@ impl ErrorResponse {
         message: message.to_string(),
       })),
 
+      StatusCode::Unauthorized => Error::UnauthorizedError(Json(ErrorResponse {
+        message: message.to_string(),
+      })),
+
       _ => Error::StandardError(Json(ErrorResponse {
         message: message.to_string(),
       })),
@@ -28,6 +32,8 @@ impl ErrorResponse {
 pub enum Error {
   #[response(status = 400, content_type = "application/json")]
   BadRequestError(Json<ErrorResponse>),
+  #[response(status = 401, content_type = "application/json")]
+  UnauthorizedError(Json<ErrorResponse>),
   #[response(status = 500, content_type = "application/json")]
   StandardError(Json<ErrorResponse>),
 }
