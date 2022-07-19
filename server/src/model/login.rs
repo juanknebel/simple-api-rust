@@ -11,16 +11,24 @@ pub struct Login {
 }
 
 impl Login {
-  pub fn get_id(self) -> i32 {
+  pub fn get_id(&self) -> i32 {
     return self.id;
   }
 
-  pub fn get_username(self) -> String {
-    return self.username;
+  pub fn get_username(&self) -> String {
+    return self.username.to_string();
   }
 
   pub fn get_token(&self) -> String {
     return self.token.to_string();
+  }
+
+  pub fn update(&mut self, login: &NewLogin) -> Result<(), String> {
+    if self.username != login.get_username() {
+      return Err(String::from("Username doesn't match"));
+    }
+    self.token = login.token.to_string();
+    Ok(())
   }
 }
 

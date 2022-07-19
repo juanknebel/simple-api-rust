@@ -1,6 +1,7 @@
 use rocket::{
   http::hyper::StatusCode,
   response::status::{Accepted, Created},
+  State,
 };
 use rocket_contrib::json::Json;
 use serde::{Deserialize, Serialize};
@@ -9,7 +10,7 @@ use std::borrow::Borrow;
 use crate::{
   infrastructure::responses::{Error, ErrorResponse},
   model::user_service,
-  DbConnection,
+  DbConnection, JwtConfig,
 };
 
 /// Handles the creation of a new user.
@@ -32,7 +33,7 @@ pub fn create_user(
   );
   match result {
     Ok(msg) => {
-      println!("Created the username {}", new_user_dto.username);
+      log::info!("new username {}", new_user_dto.username);
       let dto = UserDto {
         id: Option::from(msg),
         username: new_user_dto.username.to_string(),
@@ -46,7 +47,7 @@ pub fn create_user(
         new_user_dto.username.to_string(),
         err
       );
-      print!("{}", err_msg);
+      log::error!("{}", err_msg);
       Err(ErrorResponse::create_error(
         &err_msg,
         StatusCode::BadRequest,
@@ -58,10 +59,12 @@ pub fn create_user(
 #[post("/", format = "application/json", data = "<user_dto>")]
 pub fn login(
   conn: DbConnection,
+  jwt_config: State<JwtConfig>,
   user_dto: Json<UserDto>,
 ) -> Result<Accepted<Json<LoginDto>>, Error> {
   let new_login_result = user_service::login(
     conn.borrow(),
+    jwt_config.inner(),
     user_dto.username.to_string(),
     user_dto.password.to_string(),
   );
@@ -73,9 +76,9 @@ pub fn login(
       };
       Ok(Accepted(Option::from(Json(dto))))
     },
-    Err(_) => {
+    Err(err) => {
+      log::debug!("{}", err.to_string());
       let err_msg = String::from("Invalid credentials");
-      print!("{}", err_msg);
       Err(ErrorResponse::create_error(
         &err_msg,
         StatusCode::BadRequest,

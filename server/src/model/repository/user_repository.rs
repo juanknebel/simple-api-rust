@@ -39,8 +39,3 @@ pub fn total(conn: &DbConnection) -> RepoResult<i64> {
   let size = users::table.select(count_star()).get_result(conn.deref())?;
   Ok(size)
 }
-
-pub fn get(conn: &DbConnection, id: i32) -> RepoResult<User> {
-  let user = users::table.find(id).get_result(conn.deref())?;
-  Ok(user)
-}

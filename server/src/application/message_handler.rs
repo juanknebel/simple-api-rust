@@ -2,23 +2,28 @@ use rocket::http::hyper::StatusCode;
 use std::borrow::Borrow;
 
 use crate::auth::middleware::AccessToken;
-use rocket::response::status::{Accepted, Created};
+use rocket::{
+  response::status::{Accepted, Created},
+  State,
+};
 use rocket_contrib::json::Json;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+  auth::token,
   infrastructure::responses::{Error, ErrorResponse, GenericResponse},
-  model::{message_service, user_service},
-  DbConnection,
+  model::message_service,
+  DbConnection, JwtConfig,
 };
 
 #[post("/send", format = "application/json", data = "<msg_dto>")]
 pub fn send_message(
   token: AccessToken,
+  jwt_config: State<JwtConfig>,
   conn: DbConnection,
   msg_dto: Json<MessageDto>,
 ) -> Result<Created<Json<GenericResponse>>, Error> {
-  match is_valid(conn.borrow(), token.borrow(), msg_dto.from) {
+  match is_valid(token.borrow(), jwt_config.inner(), msg_dto.from) {
     true => {
       let result = message_service::create(
         conn.borrow(),
@@ -82,10 +87,11 @@ pub fn get_message(
 #[post("/", format = "application/json", data = "<msg_dto>")]
 pub fn get_message_from(
   token: AccessToken,
+  jwt_config: State<JwtConfig>,
   msg_dto: Json<MessageDto>,
   conn: DbConnection,
 ) -> Result<Accepted<Json<Vec<ResponseMessageDto>>>, Error> {
-  match is_valid(conn.borrow(), token.borrow(), msg_dto.from) {
+  match is_valid(token.borrow(), jwt_config.inner(), msg_dto.from) {
     true => {
       match message_service::find(
         conn.borrow(),
@@ -140,23 +146,9 @@ pub struct ResponseMessageDto {
   message: String,
 }
 
-fn is_valid(conn: &DbConnection, token: &AccessToken, id_user: i32) -> bool {
-  let user_result = user_service::get(conn.borrow(), id_user);
-  match user_result {
-    Ok(user) => {
-      let token_belong_to_user = user_service::is_same_token(
-        conn.borrow(),
-        token.get_token().as_str(),
-        user.borrow(),
-      );
-      match token_belong_to_user {
-        Ok(is_valid_token) => is_valid_token,
-        Err(err) => {
-          log::debug!("error: {}", err.to_string());
-          false
-        },
-      }
-    },
+fn is_valid(token: &AccessToken, jwt_config: &JwtConfig, id_user: i32) -> bool {
+  match token::authorize(token, id_user, jwt_config) {
+    Ok(_) => true,
     Err(err) => {
       log::debug!("error: {}", err.to_string());
       false

@@ -9,7 +9,7 @@ use crate::{
     repository::{login_repository, user_repository},
     user::{NewUser, User},
   },
-  DbConnection,
+  DbConnection, JwtConfig,
 };
 
 /// Creates a new user based and generates the password's hash.
@@ -40,6 +40,7 @@ fn calculate_hash(password: String) -> String {
 
 pub fn login(
   conn: &DbConnection,
+  jwt_config: &JwtConfig,
   username: String,
   password: String,
 ) -> Result<Login, String> {
@@ -47,33 +48,36 @@ pub fn login(
   let search_user = NewUser::new(username, hashed);
   let user_result = user_repository::find(conn.borrow(), search_user);
   match user_result {
-    Ok(user) => {
-      let token = create_token(user.get_id());
-      let new_login = NewLogin::new(user.get_username(), token);
-      let login = login_repository::add(conn.borrow(), new_login);
-      Ok(login.unwrap())
-    },
+    Ok(user) => for_existing_user(conn, jwt_config, user.borrow()),
     Err(err) => Err(err.to_string()),
   }
 }
 
-fn create_token(id: i32) -> String {
-  token::create_jwt(id).unwrap()
+fn create_token(id: i32, jwt_config: &JwtConfig) -> String {
+  token::create_jwt(id, jwt_config).unwrap()
 }
 
 pub fn total(conn: &DbConnection) -> Result<i64, String> {
   user_repository::total(conn.borrow()).map_err(|err| err.to_string())
 }
 
-pub fn get(conn: &DbConnection, id: i32) -> Result<User, String> {
-  user_repository::get(conn.borrow(), id).map_err(|err| err.to_string())
-}
-
-pub fn is_same_token(
+fn for_existing_user(
   conn: &DbConnection,
-  token: &str,
+  jwt_config: &JwtConfig,
   user: &User,
-) -> Result<bool, String> {
-  login_repository::exist(conn.borrow(), user.get_username(), token)
-    .map_err(|err| err.to_string())
+) -> Result<Login, String> {
+  let token = create_token(user.get_id(), jwt_config);
+  let new_login = NewLogin::new(user.get_username(), token);
+  let login_result = login_repository::find(conn.borrow(), user.get_username());
+
+  match login_result {
+    Ok(login_found) => match login_found {
+      Some(mut login) => {
+        login.update(&new_login)?;
+        Ok(login_repository::update(conn.borrow(), login.borrow()).unwrap())
+      },
+      None => Ok(login_repository::add(conn.borrow(), new_login).unwrap()),
+    },
+    Err(err) => Err(err.to_string()),
+  }
 }

@@ -17,9 +17,11 @@ impl ErrorResponse {
         message: message.to_string(),
       })),
 
-      StatusCode::Unauthorized => Error::UnauthorizedError(Json(ErrorResponse {
-        message: message.to_string(),
-      })),
+      StatusCode::Unauthorized => {
+        Error::UnauthorizedError(Json(ErrorResponse {
+          message: message.to_string(),
+        }))
+      },
 
       _ => Error::StandardError(Json(ErrorResponse {
         message: message.to_string(),

@@ -11,6 +11,7 @@ mod infrastructure;
 mod model;
 mod schema;
 
+use crate::auth::token::JwtConfig;
 use application::{health_handler, message_handler, user_handler};
 use rocket::{config::Environment, routes};
 use rocket_contrib::databases::{database, diesel::SqliteConnection};
@@ -18,12 +19,13 @@ use rocket_contrib::databases::{database, diesel::SqliteConnection};
 #[database("sqlite")]
 pub struct DbConnection(SqliteConnection);
 
-fn setup_logger(env: Environment) {
+fn setup_logger(environment: Environment) {
   use log::LevelFilter;
 
-  let mut level_filter = LevelFilter::Warn;
-  if env.is_dev() {
-    level_filter = LevelFilter::Trace;
+  let level_filter;
+  match environment {
+    Environment::Development => level_filter = LevelFilter::Trace,
+    _ => level_filter = LevelFilter::Warn,
   }
 
   let (level, logger) = fern::Dispatch::new()
@@ -47,10 +49,25 @@ fn setup_logger(env: Environment) {
   async_log::Logger::wrap(logger, || 0).start(level).unwrap();
 }
 
+pub fn setup_jwtconfig(jwt_secret: String) -> JwtConfig {
+  JwtConfig::new(jwt_secret)
+}
+
 fn main() {
   setup_logger(rocket::Config::active().unwrap().environment);
-  rocket::Rocket::ignite()
+  let rocket = rocket::Rocket::ignite();
+  let jwt_config = setup_jwtconfig(
+    rocket
+      .config()
+      .extras
+      .get("jwt_secret")
+      .unwrap()
+      .to_string(),
+  );
+
+  rocket
     .attach(DbConnection::fairing())
+    .manage(jwt_config)
     .mount("/", routes![health_handler::ping,])
     .mount("/users", routes![user_handler::create_user,])
     .mount("/login", routes![user_handler::login,])
