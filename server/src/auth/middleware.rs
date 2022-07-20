@@ -20,17 +20,21 @@ impl fmt::Display for AccessToken {
   }
 }
 
-fn is_valid(token: &str) -> bool {
-  token.len() > 0
-}
-
 #[derive(Debug)]
 pub enum AccessTokenError {
-  Invalid,
   BadCount,
   Missing,
 }
 
+/// Implements the FromRequest trait to make the header x-access-token appear in
+/// the guards of every endpoint.
+///
+/// # Return
+/// * Success and an AccessToken struct if the header is present.
+/// * Failure with AccessTokenError::Missing if there is no value for the
+///   header.
+/// * Failure with AccessTokenError::BasCount if there is more than one value
+///   for the header.
 impl<'a, 'r> FromRequest<'a, 'r> for AccessToken {
   type Error = AccessTokenError;
 
@@ -42,10 +46,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for AccessToken {
 
     match tokens.len() {
       0 => Outcome::Failure((Status::BadRequest, AccessTokenError::Missing)),
-      1 if is_valid(tokens[0]) => {
-        Outcome::Success(AccessToken(tokens[0].to_string()))
-      },
-      1 => Outcome::Failure((Status::BadRequest, AccessTokenError::Invalid)),
+      1 => Outcome::Success(AccessToken(tokens[0].to_string())),
       _ => Outcome::Failure((Status::BadRequest, AccessTokenError::BadCount)),
     }
   }

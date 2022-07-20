@@ -14,6 +14,15 @@ use crate::{
   DbConnection,
 };
 
+/// Insert a user in the database
+///
+/// # Arguments
+/// * `conn` - The database connection.
+/// * `new_user` - The new user to be inserted.
+///
+/// # Return
+/// * The id of the user.
+/// * A diesel error.
 pub fn add(conn: &DbConnection, new_user: NewUser) -> RepoResult<i32> {
   diesel::insert_into(users::table)
     .values(new_user.borrow())
@@ -24,17 +33,35 @@ pub fn add(conn: &DbConnection, new_user: NewUser) -> RepoResult<i32> {
   Ok(user.get_id())
 }
 
-pub fn find(conn: &DbConnection, search_user: NewUser) -> RepoResult<User> {
+/// Search a user by its parameters.
+///
+/// # Arguments
+/// * `conn` - The database connection.
+/// * `the_username` - The username of the user to look for.
+/// * `password` - The hashed password of the user to look for.
+///
+/// # Return
+/// * A user struct.
+/// * A diesel error.
+pub fn find(
+  conn: &DbConnection,
+  the_username: String,
+  password: String,
+) -> RepoResult<User> {
   let user = users::table
-    .filter(
-      username
-        .eq(search_user.get_username())
-        .and(hashed_password.eq(search_user.get_password())),
-    )
+    .filter(username.eq(the_username).and(hashed_password.eq(password)))
     .first(conn.deref())?;
   Ok(user)
 }
 
+/// Get the total number of users in the database.
+///
+/// # Arguments
+/// * `conn` - The database connection.
+///
+/// # Return
+/// * The number of users.
+/// * A diesel error.
 pub fn total(conn: &DbConnection) -> RepoResult<i64> {
   let size = users::table.select(count_star()).get_result(conn.deref())?;
   Ok(size)

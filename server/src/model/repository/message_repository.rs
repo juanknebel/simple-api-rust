@@ -14,6 +14,15 @@ use crate::{
   DbConnection,
 };
 
+/// Insert a message in the database
+///
+/// # Arguments
+/// * `conn` - The database connection.
+/// * `new_message` - The new message to be inserted.
+///
+/// # Return
+/// * The id of the message.
+/// * A diesel error.
 pub fn add(conn: &DbConnection, new_message: NewMessage) -> RepoResult<i32> {
   diesel::insert_into(messages::table)
     .values(new_message.borrow())
@@ -22,6 +31,15 @@ pub fn add(conn: &DbConnection, new_message: NewMessage) -> RepoResult<i32> {
   Ok(msg.get_id())
 }
 
+/// Look for the last inserted message from a specific user.
+///
+/// # Arguments
+/// * `conn` - The database connection.
+/// * `from_user` - The id of the user to look for the message.
+///
+/// # Return
+/// * The message struct.
+/// * A diesel error.
 fn find_latest_msg(conn: &DbConnection, from_user: i32) -> RepoResult<Message> {
   let msg = messages::table
     .filter(from.eq(from_user))
@@ -30,11 +48,33 @@ fn find_latest_msg(conn: &DbConnection, from_user: i32) -> RepoResult<Message> {
   Ok(msg)
 }
 
+/// Retrieve a message from its id.
+///
+/// # Arguments
+/// * `conn` - The database connection.
+/// * `id_msg` - The id of the message to look for.
+///
+/// # Return
+/// * The message struct.
+/// * A diesel error.
 pub fn get(conn: &DbConnection, id_msg: i32) -> RepoResult<Message> {
   let msg = messages::table.find(id_msg).get_result(conn.deref())?;
   Ok(msg)
 }
 
+/// Look for messages based on the parameters. The messages are return in order
+/// descending by its ids.
+///
+/// # Arguments
+/// * `conn` - The database connection.
+/// * `from_msg` - The id of the message from which start the search. Could not
+/// be the id of a message from the user.
+/// * `from_user` - The id of the user to look the message for.
+/// * `limit` - max quantity of retrieve message.
+///
+/// # Return
+/// * A sorted vector of message. Could be empty.
+/// * A diesel error.
 pub fn find(
   conn: &DbConnection,
   from_msg: i32,

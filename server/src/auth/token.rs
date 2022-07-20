@@ -35,6 +35,15 @@ struct Claims {
   exp: usize,
 }
 
+/// Create a Jason Web Token, based on a uid using the HS512 Algorithm.
+///
+/// # Arguments
+/// * `uid` - The uid of the entity that needs a token.
+/// * `jwt_config` - The jwt configuration to generate the web token.
+///
+/// # Return
+/// * A string that represents the Jason Web Token.
+/// * A JWTTokenCreationError in case of failed.
 pub fn create_jwt(uid: i32, jwt_config: &JwtConfig) -> AuthResult<String> {
   let expiration = Utc::now()
     .checked_add_signed(chrono::Duration::days(1))
@@ -55,6 +64,17 @@ pub fn create_jwt(uid: i32, jwt_config: &JwtConfig) -> AuthResult<String> {
   token_result
 }
 
+/// Authorize an uid if the access token is valid and belongs to the uid.
+///
+/// # Arguments
+/// * `token` - The access token to validate. Must be in the Bearer form.
+/// * `uid` - The uid to check if it is the same as the access token.
+/// * `jwt_config` - The jwt configuration to validate the web token.
+///
+/// # Return
+/// * Nothing if the validation was successful.
+/// * JWTTokenError if an error occur in the decode process.
+/// * NoPermissionError if the token doesn't belong to the uid.
 pub fn authorize(
   token: &AccessToken,
   uid: i32,
@@ -74,6 +94,15 @@ pub fn authorize(
   Ok(())
 }
 
+/// Extract the value of token from the string in the AccessToken.
+/// The AccessToken must be 'BEARER xxxxx'.
+///
+/// # Arguments
+/// * `token` - The AccessToken to extract the value.
+///
+/// # Return
+/// * A string that represents the value of the JWT.
+/// * InvalidAuthHeaderError if the header doesn't respect the specification.
 fn jwt_from_header(token: &AccessToken) -> AuthResult<String> {
   if !token.get_token().starts_with(BEARER) {
     return Err(Error::InvalidAuthHeaderError);

@@ -32,6 +32,13 @@ pub fn create_user(
   user_repository::add(conn.borrow(), new_user).map_err(|err| err.to_string())
 }
 
+/// Calculate hash for any given string using SHA256.
+///
+/// # Arguments
+/// * `password` - The string to hashed.
+///
+/// # Return
+/// * A string that represents the hash of the given one.
 fn calculate_hash(password: String) -> String {
   let mut hasher = Sha256::new();
   // hasher.update(password.as_ref());
@@ -39,6 +46,17 @@ fn calculate_hash(password: String) -> String {
   format!("{:X}", hasher.finalize())
 }
 
+/// Creates or updates the a login for a specific user.
+///
+/// # Arguments
+/// * `conn` - The database connection.
+/// * `jwt_config` - The jwt configuration used to generate the access token.
+/// * `username` - The username of an existing user.
+/// * `password` - The password of the given user.
+///
+/// # Return
+/// * A login if it was successful.
+/// An error instead.
 pub fn login(
   conn: &DbConnection,
   jwt_config: &JwtConfig,
@@ -47,21 +65,51 @@ pub fn login(
 ) -> ServiceResult<Login> {
   let hashed = calculate_hash(password);
   let search_user = NewUser::new(username, hashed);
-  let user_result = user_repository::find(conn.borrow(), search_user);
+  let user_result = user_repository::find(
+    conn.borrow(),
+    search_user.get_username(),
+    search_user.get_password(),
+  );
   match user_result {
     Ok(user) => for_existing_user(conn, jwt_config, user.borrow()),
     Err(err) => Err(err.to_string()),
   }
 }
 
+/// Creates a JWT token for a specific user_id
+///
+/// # Arguments
+/// * `jwt_config` - The jwt configuration used to generate the access token.
+/// * `id` - The username of an existing user.
+///
+/// # Return
+/// * A String that represents the JWT.
+/// An error instead.
 fn create_token(id: i32, jwt_config: &JwtConfig) -> String {
   token::create_jwt(id, jwt_config).unwrap()
 }
 
+/// Get the total number of register users.
+///
+/// # Arguments
+/// * `conn` - The database connection.
+///
+/// # Return
+/// * The total number of users.
 pub fn total(conn: &DbConnection) -> ServiceResult<i64> {
   user_repository::total(conn.borrow()).map_err(|err| err.to_string())
 }
 
+/// Creates or updates a login for a valid user.
+///
+/// # Arguments
+/// * `conn` - The database connection.
+/// * `jwt_config` - The jwt configuration used to generate the access token.
+/// * `user` - The user that wants to login.
+///
+/// # Return
+/// * A login if it was successful.
+/// * An error instead.
 fn for_existing_user(
   conn: &DbConnection,
   jwt_config: &JwtConfig,

@@ -15,12 +15,12 @@ use crate::{
 
 /// Handles the creation of a new user.
 ///
-/// # Returns
+/// # Return
 /// A Result type:
-/// * 201 and the id and username of the recently created user.
-/// * 400 for any exception in the creation of the user, with specific
+/// * 201 Created and the id and username of the recently created user.
+/// * 400 Bad request for any exception in the creation of the user, with specific
 /// description.
-/// * 500 for any other error.
+/// * 500 Internal error for any other error.
 #[post("/", format = "application/json", data = "<new_user_dto>")]
 pub fn create_user(
   conn: DbConnection,
@@ -50,6 +50,18 @@ pub fn create_user(
   Ok(Created(format!("/user/{}", msg), Option::from(Json(dto))))
 }
 
+/// Login a user. Checks if the username exist and if the password is the same.
+/// This login generates a Jason Web Token with a expiration of 1 day.
+/// If already exists another session for the user the a new token is generated and replace the old one.
+///
+/// # Arguments
+/// * `jwt_config` - The jwt configuration used to generate the access token.
+/// * `conn` - The database connection.
+/// * `user_dto` - The user data to make the login.
+///
+/// # Return
+/// * 202 Accepted and the Jason Web Token (JWT).
+/// * 400 Bad request and the error message.
 #[post("/", format = "application/json", data = "<user_dto>")]
 pub fn login(
   conn: DbConnection,

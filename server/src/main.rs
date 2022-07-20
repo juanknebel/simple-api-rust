@@ -19,6 +19,12 @@ use rocket_contrib::databases::{database, diesel::SqliteConnection};
 #[database("sqlite")]
 pub struct DbConnection(SqliteConnection);
 
+/// Setup the logger based on the environment in which it's been deploy.
+/// If the environment is development then the level of logging is set to Trace.
+/// In any other case it's set in Warning.
+///
+/// # Arguments
+/// * `environment` - The environment in which the application is been deploy.
 fn setup_logger(environment: Environment) {
   use log::LevelFilter;
 
@@ -49,6 +55,14 @@ fn setup_logger(environment: Environment) {
   async_log::Logger::wrap(logger, || 0).start(level).unwrap();
 }
 
+/// Initialize the JwtConfig for the entire application.
+///
+/// # Arguments
+/// * `jwt_secret` - The secret use to encode and decode all the jason web
+///   tokens.
+///
+/// # Return
+/// * A new JwtConfig.
 pub fn setup_jwtconfig(jwt_secret: String) -> JwtConfig {
   JwtConfig::new(jwt_secret)
 }

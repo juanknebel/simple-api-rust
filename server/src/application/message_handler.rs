@@ -16,6 +16,19 @@ use crate::{
   DbConnection, JwtConfig,
 };
 
+/// Send a message from one user to another one.
+///
+/// # Arguments
+/// * `token` - The access token used to validate if the user who sent the
+///   messages is a valid one.
+/// * `jwt_config` - The jwt configuration used to validate the access token.
+/// * `conn` - The database connection.
+/// * `msg_dto` - The message dto to persist.
+///
+/// # Return
+/// * 201 Created and the id of the message inserted.
+/// * 400 Bad request and the error message.
+/// * 401 Unauthorized if the token isn't valid.
 #[post("/send", format = "application/json", data = "<msg_dto>")]
 pub fn send_message(
   token: AccessToken,
@@ -51,11 +64,25 @@ pub fn send_message(
   }
 }
 
+/// Get a message from its id.
+///
+/// # Arguments
+/// * `token` - The access token used to validate if the user who sent the
+///   messages is a valid one.
+/// * `jwt_config` - The jwt configuration used to validate the access token.
+/// * `conn` - The database connection.
+/// * `id` - The message id to retrieve.
+///
+/// # Return
+/// * 202 Accepted and the message.
+/// * 400 Bad request and the error message.
+/// * 401 Unauthorized if the token isn't valid (Not implemented yet).
 #[get("/<id>", format = "application/json")]
 pub fn get_message(
   _token: AccessToken,
-  id: i32,
+  _jwt_config: State<JwtConfig>,
   conn: DbConnection,
+  id: i32,
 ) -> ApplicationResult<Accepted<Json<ResponseMessageDto>>> {
   let msg = message_service::get(conn.borrow(), id).map_err(|err| {
     log::error!("error: {}", err.to_string());
@@ -71,12 +98,26 @@ pub fn get_message(
   Ok(Accepted(Option::from(Json(dto))))
 }
 
+/// Get a message from the user specified, since the id indicated and with a
+/// limit.
+///
+/// # Arguments
+/// * `token` - The access token used to validate if the user who sent the
+///   messages is a valid one.
+/// * `jwt_config` - The jwt configuration used to validate the access token.
+/// * `conn` - The database connection.
+/// * `msg_dto` - The message params to retrieve.
+///
+/// # Return
+/// * 202 Accepted and the a list of messages order by id in desc mode.
+/// * 400 Bad request and the error message.
+/// * 401 Unauthorized if the token isn't valid.
 #[post("/", format = "application/json", data = "<msg_dto>")]
 pub fn get_message_from(
   token: AccessToken,
   jwt_config: State<JwtConfig>,
-  msg_dto: Json<MessageDto>,
   conn: DbConnection,
+  msg_dto: Json<MessageDto>,
 ) -> ApplicationResult<Accepted<Json<Vec<ResponseMessageDto>>>> {
   match is_valid(token.borrow(), jwt_config.inner(), msg_dto.from) {
     true => {
@@ -84,7 +125,7 @@ pub fn get_message_from(
         conn.borrow(),
         msg_dto.id.unwrap(),
         msg_dto.from,
-        msg_dto.limit.unwrap(),
+        msg_dto.limit,
       )
       .map_err(|err| {
         log::error!("error: {}", err.to_string());
@@ -130,6 +171,16 @@ pub struct ResponseMessageDto {
   message: String,
 }
 
+/// Validate if a token belongs to a specific user.
+///
+/// # Arguments
+/// * `token` - The access token to be validated.
+/// * `jwt_config` - The jwt configuration use to validate.
+/// * `id_user` - The user_id to check if the token matches.
+///
+/// # Return
+/// * True if the access token is valid and belongs to the user.
+/// * False otherwise.
 fn is_valid(token: &AccessToken, jwt_config: &JwtConfig, id_user: i32) -> bool {
   match token::authorize(token, id_user, jwt_config) {
     Ok(_) => true,
