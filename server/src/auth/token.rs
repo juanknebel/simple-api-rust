@@ -6,7 +6,7 @@ use jsonwebtoken::{
 use serde::{Deserialize, Serialize};
 use std::{fmt, fmt::Formatter};
 
-use crate::infrastructure::error::Error;
+use crate::auth::error::{AuthResult, Error};
 
 const BEARER: &str = "Bearer ";
 
@@ -35,7 +35,7 @@ struct Claims {
   exp: usize,
 }
 
-pub fn create_jwt(uid: i32, jwt_config: &JwtConfig) -> Result<String, Error> {
+pub fn create_jwt(uid: i32, jwt_config: &JwtConfig) -> AuthResult<String> {
   let expiration = Utc::now()
     .checked_add_signed(chrono::Duration::days(1))
     .expect("valid timestamp")
@@ -59,7 +59,7 @@ pub fn authorize(
   token: &AccessToken,
   uid: i32,
   jwt_config: &JwtConfig,
-) -> Result<(), Error> {
+) -> AuthResult<()> {
   let token_as_string = jwt_from_header(token)?;
   let decoded = decode::<Claims>(
     &token_as_string,
@@ -74,7 +74,7 @@ pub fn authorize(
   Ok(())
 }
 
-fn jwt_from_header(token: &AccessToken) -> Result<String, Error> {
+fn jwt_from_header(token: &AccessToken) -> AuthResult<String> {
   if !token.get_token().starts_with(BEARER) {
     return Err(Error::InvalidAuthHeaderError);
   }

@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+pub type AuthResult<T> = Result<T, Error>;
+
 #[derive(Error, Debug)]
 pub enum Error {
   //#[error("wrong credentials")]

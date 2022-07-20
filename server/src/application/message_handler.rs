@@ -10,8 +10,8 @@ use rocket_contrib::json::Json;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+  application::error::{ApplicationResult, ErrorResponse, GenericResponse},
   auth::token,
-  infrastructure::responses::{Error, ErrorResponse, GenericResponse},
   model::message_service,
   DbConnection, JwtConfig,
 };
@@ -22,7 +22,7 @@ pub fn send_message(
   jwt_config: State<JwtConfig>,
   conn: DbConnection,
   msg_dto: Json<MessageDto>,
-) -> Result<Created<Json<GenericResponse>>, Error> {
+) -> ApplicationResult<Created<Json<GenericResponse>>> {
   match is_valid(token.borrow(), jwt_config.inner(), msg_dto.from) {
     true => {
       let result = message_service::create(
@@ -62,7 +62,7 @@ pub fn get_message(
   _token: AccessToken,
   id: i32,
   conn: DbConnection,
-) -> Result<Accepted<Json<ResponseMessageDto>>, Error> {
+) -> ApplicationResult<Accepted<Json<ResponseMessageDto>>> {
   let result_msg = message_service::get(conn.borrow(), id);
   match result_msg {
     Ok(msg) => {
@@ -90,7 +90,7 @@ pub fn get_message_from(
   jwt_config: State<JwtConfig>,
   msg_dto: Json<MessageDto>,
   conn: DbConnection,
-) -> Result<Accepted<Json<Vec<ResponseMessageDto>>>, Error> {
+) -> ApplicationResult<Accepted<Json<Vec<ResponseMessageDto>>>> {
   match is_valid(token.borrow(), jwt_config.inner(), msg_dto.from) {
     true => {
       match message_service::find(

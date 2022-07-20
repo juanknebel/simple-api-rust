@@ -1,3 +1,4 @@
+pub mod error;
 pub mod login;
 pub mod message;
 pub mod message_service;

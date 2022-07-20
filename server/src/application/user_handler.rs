@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
 
 use crate::{
-  infrastructure::responses::{Error, ErrorResponse},
+  application::error::{ApplicationResult, ErrorResponse},
   model::user_service,
   DbConnection, JwtConfig,
 };
@@ -25,7 +25,7 @@ use crate::{
 pub fn create_user(
   conn: DbConnection,
   new_user_dto: Json<UserDto>,
-) -> Result<Created<Json<UserDto>>, Error> {
+) -> ApplicationResult<Created<Json<UserDto>>> {
   let result = user_service::create_user(
     conn.borrow(),
     new_user_dto.username.to_string(),
@@ -61,7 +61,7 @@ pub fn login(
   conn: DbConnection,
   jwt_config: State<JwtConfig>,
   user_dto: Json<UserDto>,
-) -> Result<Accepted<Json<LoginDto>>, Error> {
+) -> ApplicationResult<Accepted<Json<LoginDto>>> {
   let new_login_result = user_service::login(
     conn.borrow(),
     jwt_config.inner(),

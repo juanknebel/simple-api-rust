@@ -4,6 +4,7 @@ use serde::Serialize;
 use std::collections::HashMap;
 
 pub type GenericResponse = HashMap<String, String>;
+pub type ApplicationResult<T> = Result<T, Error>;
 
 #[derive(Debug, Serialize, Responder)]
 pub struct ErrorResponse {
