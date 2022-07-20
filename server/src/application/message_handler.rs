@@ -25,30 +25,24 @@ pub fn send_message(
 ) -> ApplicationResult<Created<Json<GenericResponse>>> {
   match is_valid(token.borrow(), jwt_config.inner(), msg_dto.from) {
     true => {
-      let result = message_service::create(
+      let msg_id = message_service::create(
         conn.borrow(),
         msg_dto.from,
         msg_dto.to.unwrap(),
         msg_dto.message.as_ref().unwrap().to_string(),
-      );
-      match result {
-        Ok(msg_id) => {
-          let mut response = GenericResponse::new();
-          response.insert(String::from("id"), msg_id.to_string());
-          Ok(Created(
-            format!("/message/{}", msg_id),
-            Option::from(Json(response)),
-          ))
-        },
-        Err(err) => {
-          log::error!("error: {}", err.to_string());
-          let err_msg = format!("Cannot insert the message because {}", err);
-          Err(ErrorResponse::create_error(
-            &err_msg,
-            StatusCode::BadRequest,
-          ))
-        },
-      }
+      )
+      .map_err(|err| {
+        log::error!("error: {}", err.to_string());
+        let err_msg = format!("Cannot insert the message because {}", err);
+        ErrorResponse::create_error(&err_msg, StatusCode::BadRequest)
+      })?;
+
+      let mut response = GenericResponse::new();
+      response.insert(String::from("id"), msg_id.to_string());
+      Ok(Created(
+        format!("/message/{}", msg_id),
+        Option::from(Json(response)),
+      ))
     },
     false => Err(ErrorResponse::create_error(
       "Access denied",
@@ -63,25 +57,18 @@ pub fn get_message(
   id: i32,
   conn: DbConnection,
 ) -> ApplicationResult<Accepted<Json<ResponseMessageDto>>> {
-  let result_msg = message_service::get(conn.borrow(), id);
-  match result_msg {
-    Ok(msg) => {
-      let dto = ResponseMessageDto {
-        id: None,
-        to: None,
-        message: msg.get_message(),
-      };
-      Ok(Accepted(Option::from(Json(dto))))
-    },
-    Err(err) => {
-      log::error!("error: {}", err.to_string());
-      let err_msg = format!("Cannot retrieve the message because {}", err);
-      Err(ErrorResponse::create_error(
-        &err_msg,
-        StatusCode::BadRequest,
-      ))
-    },
-  }
+  let msg = message_service::get(conn.borrow(), id).map_err(|err| {
+    log::error!("error: {}", err.to_string());
+    let err_msg = format!("Cannot retrieve the message because {}", err);
+    ErrorResponse::create_error(&err_msg, StatusCode::BadRequest)
+  })?;
+
+  let dto = ResponseMessageDto {
+    id: None,
+    to: None,
+    message: msg.get_message(),
+  };
+  Ok(Accepted(Option::from(Json(dto))))
 }
 
 #[post("/", format = "application/json", data = "<msg_dto>")]
@@ -93,32 +80,27 @@ pub fn get_message_from(
 ) -> ApplicationResult<Accepted<Json<Vec<ResponseMessageDto>>>> {
   match is_valid(token.borrow(), jwt_config.inner(), msg_dto.from) {
     true => {
-      match message_service::find(
+      let messages = message_service::find(
         conn.borrow(),
         msg_dto.id.unwrap(),
         msg_dto.from,
         msg_dto.limit.unwrap(),
-      ) {
-        Ok(messages) => {
-          let messages_dto = messages
-            .iter()
-            .map(|a_msg| ResponseMessageDto {
-              id: Option::from(a_msg.get_id()),
-              to: Option::from(a_msg.get_to()),
-              message: a_msg.get_message(),
-            })
-            .collect::<Vec<ResponseMessageDto>>();
-          Ok(Accepted(Option::from(Json(messages_dto))))
-        },
-        Err(err) => {
-          log::error!("error: {}", err.to_string());
-          let err_msg = format!("Cannot retrieve the messages because {}", err);
-          Err(ErrorResponse::create_error(
-            &err_msg,
-            StatusCode::BadRequest,
-          ))
-        },
-      }
+      )
+      .map_err(|err| {
+        log::error!("error: {}", err.to_string());
+        let err_msg = format!("Cannot retrieve the messages because {}", err);
+        ErrorResponse::create_error(&err_msg, StatusCode::BadRequest)
+      })?;
+
+      let messages_dto = messages
+        .iter()
+        .map(|a_msg| ResponseMessageDto {
+          id: Option::from(a_msg.get_id()),
+          to: Option::from(a_msg.get_to()),
+          message: a_msg.get_message(),
+        })
+        .collect::<Vec<ResponseMessageDto>>();
+      Ok(Accepted(Option::from(Json(messages_dto))))
     },
     false => {
       log::error!("error: Access denied");
@@ -141,7 +123,9 @@ pub struct MessageDto {
 
 #[derive(Serialize)]
 pub struct ResponseMessageDto {
+  #[serde(skip_serializing_if = "Option::is_none")]
   id: Option<i32>,
+  #[serde(skip_serializing_if = "Option::is_none")]
   to: Option<i32>,
   message: String,
 }

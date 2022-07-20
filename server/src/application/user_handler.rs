@@ -26,34 +26,28 @@ pub fn create_user(
   conn: DbConnection,
   new_user_dto: Json<UserDto>,
 ) -> ApplicationResult<Created<Json<UserDto>>> {
-  let result = user_service::create_user(
+  let msg = user_service::create_user(
     conn.borrow(),
     new_user_dto.username.to_string(),
     new_user_dto.password.to_string(),
-  );
-  match result {
-    Ok(msg) => {
-      log::info!("new username {}", new_user_dto.username);
-      let dto = UserDto {
-        id: Option::from(msg),
-        username: new_user_dto.username.to_string(),
-        password: "".to_string(),
-      };
-      Ok(Created(format!("/user/{}", msg), Option::from(Json(dto))))
-    },
-    Err(err) => {
-      let err_msg = format!(
-        "Cannot insert the username {} because {}",
-        new_user_dto.username.to_string(),
-        err
-      );
-      log::error!("{}", err_msg);
-      Err(ErrorResponse::create_error(
-        &err_msg,
-        StatusCode::BadRequest,
-      ))
-    },
-  }
+  )
+  .map_err(|err| {
+    let err_msg = format!(
+      "Cannot insert the username {} because {}",
+      new_user_dto.username.to_string(),
+      err
+    );
+    log::error!("{}", err_msg);
+    ErrorResponse::create_error(&err_msg, StatusCode::BadRequest)
+  })?;
+
+  log::info!("new username {}", new_user_dto.username);
+  let dto = UserDto {
+    id: Option::from(msg),
+    username: new_user_dto.username.to_string(),
+    password: "".to_string(),
+  };
+  Ok(Created(format!("/user/{}", msg), Option::from(Json(dto))))
 }
 
 #[post("/", format = "application/json", data = "<user_dto>")]
@@ -62,29 +56,23 @@ pub fn login(
   jwt_config: State<JwtConfig>,
   user_dto: Json<UserDto>,
 ) -> ApplicationResult<Accepted<Json<LoginDto>>> {
-  let new_login_result = user_service::login(
+  let login = user_service::login(
     conn.borrow(),
     jwt_config.inner(),
     user_dto.username.to_string(),
     user_dto.password.to_string(),
-  );
-  match new_login_result {
-    Ok(login) => {
-      let dto = LoginDto {
-        token: login.get_token(),
-        id: login.get_id(),
-      };
-      Ok(Accepted(Option::from(Json(dto))))
-    },
-    Err(err) => {
-      log::debug!("{}", err.to_string());
-      let err_msg = String::from("Invalid credentials");
-      Err(ErrorResponse::create_error(
-        &err_msg,
-        StatusCode::BadRequest,
-      ))
-    },
-  }
+  )
+  .map_err(|err| {
+    log::debug!("{}", err.to_string());
+    let err_msg = String::from("Invalid credentials");
+    ErrorResponse::create_error(&err_msg, StatusCode::BadRequest)
+  })?;
+
+  let dto = LoginDto {
+    token: login.get_token(),
+    id: login.get_id(),
+  };
+  Ok(Accepted(Option::from(Json(dto))))
 }
 
 #[derive(Deserialize, Serialize)]
