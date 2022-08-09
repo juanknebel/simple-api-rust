@@ -12,8 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
   application::error::{ApplicationResult, ErrorResponse, GenericResponse},
   auth::token,
-  model::message_service,
-  DbConnection, JwtConfig,
+  App, DbConnection, JwtConfig,
 };
 
 /// Send a message from one user to another one.
@@ -31,24 +30,27 @@ use crate::{
 /// * 401 Unauthorized if the token isn't valid.
 #[post("/send", format = "application/json", data = "<msg_dto>")]
 pub fn send_message(
+  app: State<Box<dyn App>>,
+  conn: DbConnection,
   token: AccessToken,
   jwt_config: State<JwtConfig>,
-  conn: DbConnection,
   msg_dto: Json<MessageDto>,
 ) -> ApplicationResult<Created<Json<GenericResponse>>> {
+  let message_service = app.inner().message_service();
   match is_valid(token.borrow(), jwt_config.inner(), msg_dto.from) {
     true => {
-      let msg_id = message_service::create(
-        conn.borrow(),
-        msg_dto.from,
-        msg_dto.to.unwrap(),
-        msg_dto.message.as_ref().unwrap().to_string(),
-      )
-      .map_err(|err| {
-        log::error!("error: {}", err.to_string());
-        let err_msg = format!("Cannot insert the message because {}", err);
-        ErrorResponse::create_error(&err_msg, StatusCode::BadRequest)
-      })?;
+      let msg_id = message_service
+        .create(
+          conn.borrow(),
+          msg_dto.from,
+          msg_dto.to.unwrap(),
+          msg_dto.message.as_ref().unwrap().to_string(),
+        )
+        .map_err(|err| {
+          log::error!("error: {}", err.to_string());
+          let err_msg = format!("Cannot insert the message because {}", err);
+          ErrorResponse::create_error(&err_msg, StatusCode::BadRequest)
+        })?;
 
       let mut response = GenericResponse::new();
       response.insert(String::from("id"), msg_id.to_string());
@@ -79,12 +81,14 @@ pub fn send_message(
 /// * 401 Unauthorized if the token isn't valid (Not implemented yet).
 #[get("/<id>", format = "application/json")]
 pub fn get_message(
+  app: State<Box<dyn App>>,
+  conn: DbConnection,
   _token: AccessToken,
   _jwt_config: State<JwtConfig>,
-  conn: DbConnection,
   id: i32,
 ) -> ApplicationResult<Accepted<Json<ResponseMessageDto>>> {
-  let msg = message_service::get(conn.borrow(), id).map_err(|err| {
+  let message_service = app.inner().message_service();
+  let msg = message_service.get(conn.borrow(), id).map_err(|err| {
     log::error!("error: {}", err.to_string());
     let err_msg = format!("Cannot retrieve the message because {}", err);
     ErrorResponse::create_error(&err_msg, StatusCode::BadRequest)
@@ -114,24 +118,27 @@ pub fn get_message(
 /// * 401 Unauthorized if the token isn't valid.
 #[post("/", format = "application/json", data = "<msg_dto>")]
 pub fn get_message_from(
+  app: State<Box<dyn App>>,
+  conn: DbConnection,
   token: AccessToken,
   jwt_config: State<JwtConfig>,
-  conn: DbConnection,
   msg_dto: Json<MessageDto>,
 ) -> ApplicationResult<Accepted<Json<Vec<ResponseMessageDto>>>> {
+  let message_service = app.inner().message_service();
   match is_valid(token.borrow(), jwt_config.inner(), msg_dto.from) {
     true => {
-      let messages = message_service::find(
-        conn.borrow(),
-        msg_dto.id.unwrap(),
-        msg_dto.from,
-        msg_dto.limit,
-      )
-      .map_err(|err| {
-        log::error!("error: {}", err.to_string());
-        let err_msg = format!("Cannot retrieve the messages because {}", err);
-        ErrorResponse::create_error(&err_msg, StatusCode::BadRequest)
-      })?;
+      let messages = message_service
+        .find(
+          conn.borrow(),
+          msg_dto.id.unwrap(),
+          msg_dto.from,
+          msg_dto.limit,
+        )
+        .map_err(|err| {
+          log::error!("error: {}", err.to_string());
+          let err_msg = format!("Cannot retrieve the messages because {}", err);
+          ErrorResponse::create_error(&err_msg, StatusCode::BadRequest)
+        })?;
 
       let messages_dto = messages
         .iter()

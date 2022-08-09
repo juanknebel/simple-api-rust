@@ -1,9 +1,11 @@
-use rocket::{http::hyper::StatusCode, response::status::Accepted};
+use rocket::{http::hyper::StatusCode, response::status::Accepted, State};
 use std::borrow::Borrow;
 
 use crate::{
-  application::error::{ApplicationResult, ErrorResponse},
-  model::user_service,
+  application::{
+    app::App,
+    error::{ApplicationResult, ErrorResponse},
+  },
   DbConnection,
 };
 
@@ -13,8 +15,12 @@ use crate::{
 /// * 200 and pong message if we can make a simple sql query.
 /// * 500 and the error message.
 #[get("/ping")]
-pub fn ping(conn: DbConnection) -> ApplicationResult<Accepted<String>> {
-  let result = user_service::total(conn.borrow());
+pub fn ping(
+  app: State<Box<dyn App>>,
+  conn: DbConnection,
+) -> ApplicationResult<Accepted<String>> {
+  let user_service = app.inner().user_service();
+  let result = user_service.total(conn.borrow());
 
   match result {
     Ok(_) => Ok(Accepted(Option::from(String::from("pong")))),
