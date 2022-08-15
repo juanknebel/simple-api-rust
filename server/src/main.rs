@@ -15,6 +15,11 @@ use crate::{
   auth::token::JwtConfig,
   model::{
     message_service::{MessageService, MessageServiceImpl},
+    repository::{
+      login_repository::LoginRepositoryImpl,
+      message_repository::MessageRepositoryImpl,
+      user_repository::UserRepositoryImpl,
+    },
     user_service::{UserService, UserServiceImpl},
   },
 };
@@ -85,11 +90,20 @@ fn main() {
       .to_string(),
   );
 
+  // User related initialization
+  let user_repository = UserRepositoryImpl;
+  let login_repository = LoginRepositoryImpl;
+  let user_service = UserServiceImpl::new(user_repository, login_repository);
+
+  // Messages related initialization
+  let message_repository = MessageRepositoryImpl;
+  let message_service = MessageServiceImpl::new(message_repository);
+
   rocket
     .attach(DbConnection::fairing())
     .manage(jwt_config)
-    .manage(Box::new(UserServiceImpl) as Box<dyn UserService>)
-    .manage(Box::new(MessageServiceImpl) as Box<dyn MessageService>)
+    .manage(Box::new(user_service) as Box<dyn UserService>)
+    .manage(Box::new(message_service) as Box<dyn MessageService>)
     .mount("/", routes![health_handler::ping,])
     .mount("/users", routes![user_handler::create_user,])
     .mount("/login", routes![user_handler::login,])

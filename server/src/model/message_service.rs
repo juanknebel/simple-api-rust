@@ -4,7 +4,7 @@ use crate::{
   model::{
     error::ServiceResult,
     message::{Message, NewMessage},
-    repository::message_repository,
+    repository::message_repository::MessageRepository,
   },
   DbConnection,
 };
@@ -62,9 +62,25 @@ pub trait MessageService: Sync + Send {
   ) -> ServiceResult<Vec<Message>>;
 }
 
-pub struct MessageServiceImpl;
+pub struct MessageServiceImpl<MessageRepo> {
+  message_repository: MessageRepo,
+}
 
-impl MessageService for MessageServiceImpl {
+impl<MessageRepo> MessageServiceImpl<MessageRepo>
+where
+  MessageRepo: MessageRepository,
+{
+  pub fn new(the_message_repository: MessageRepo) -> Self {
+    MessageServiceImpl {
+      message_repository: the_message_repository,
+    }
+  }
+}
+
+impl<MessageRepo> MessageService for MessageServiceImpl<MessageRepo>
+where
+  MessageRepo: MessageRepository + Send + Sync,
+{
   fn create(
     &self,
     conn: &DbConnection,
@@ -73,12 +89,17 @@ impl MessageService for MessageServiceImpl {
     message: String,
   ) -> ServiceResult<i32> {
     let new_message = NewMessage::new(from, to, message);
-    message_repository::add(conn.borrow(), new_message)
+    self
+      .message_repository
+      .add(conn.borrow(), new_message)
       .map_err(|err| err.to_string())
   }
 
   fn get(&self, conn: &DbConnection, id: i32) -> ServiceResult<Message> {
-    message_repository::get(conn.borrow(), id).map_err(|err| err.to_string())
+    self
+      .message_repository
+      .get(conn.borrow(), id)
+      .map_err(|err| err.to_string())
   }
 
   fn find(
@@ -88,12 +109,9 @@ impl MessageService for MessageServiceImpl {
     from_user: i32,
     limit: Option<i64>,
   ) -> ServiceResult<Vec<Message>> {
-    message_repository::find(
-      conn.borrow(),
-      from_msg,
-      from_user,
-      limit.unwrap_or(5),
-    )
-    .map_err(|err| err.to_string())
+    self
+      .message_repository
+      .find(conn.borrow(), from_msg, from_user, limit.unwrap_or(5))
+      .map_err(|err| err.to_string())
   }
 }
