@@ -1,9 +1,8 @@
 use rocket::{http::hyper::StatusCode, response::status::Accepted, State};
-use std::borrow::Borrow;
 
 use crate::{
   application::error::{ApplicationResult, ErrorResponse},
-  DbConnection, UserService,
+  UserService,
 };
 
 /// Implements a pong end point.
@@ -14,10 +13,9 @@ use crate::{
 #[get("/ping")]
 pub fn ping(
   us_state: State<Box<dyn UserService>>,
-  conn: DbConnection,
 ) -> ApplicationResult<Accepted<String>> {
   let user_service = us_state.inner();
-  let result = user_service.total(conn.borrow());
+  let result = user_service.total();
 
   match result {
     Ok(_) => Ok(Accepted(Option::from(String::from("pong")))),

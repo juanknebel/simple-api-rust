@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
   application::error::{ApplicationResult, ErrorResponse, GenericResponse},
   auth::token,
-  DbConnection, JwtConfig, MessageService,
+  JwtConfig, MessageService,
 };
 
 /// Send a message from one user to another one.
@@ -21,7 +21,6 @@ use crate::{
 /// * `token` - The access token used to validate if the user who sent the
 ///   messages is a valid one.
 /// * `jwt_config` - The jwt configuration used to validate the access token.
-/// * `conn` - The database connection.
 /// * `msg_dto` - The message dto to persist.
 ///
 /// # Return
@@ -31,7 +30,6 @@ use crate::{
 #[post("/send", format = "application/json", data = "<msg_dto>")]
 pub fn send_message(
   msg_state: State<Box<dyn MessageService>>,
-  conn: DbConnection,
   token: AccessToken,
   jwt_config: State<JwtConfig>,
   msg_dto: Json<MessageDto>,
@@ -41,7 +39,6 @@ pub fn send_message(
     true => {
       let msg_id = message_service
         .create(
-          conn.borrow(),
           msg_dto.from,
           msg_dto.to.unwrap(),
           msg_dto.message.as_ref().unwrap().to_string(),
@@ -72,7 +69,6 @@ pub fn send_message(
 /// * `token` - The access token used to validate if the user who sent the
 ///   messages is a valid one.
 /// * `jwt_config` - The jwt configuration used to validate the access token.
-/// * `conn` - The database connection.
 /// * `id` - The message id to retrieve.
 ///
 /// # Return
@@ -82,13 +78,12 @@ pub fn send_message(
 #[get("/<id>", format = "application/json")]
 pub fn get_message(
   msg_state: State<Box<dyn MessageService>>,
-  conn: DbConnection,
   _token: AccessToken,
   _jwt_config: State<JwtConfig>,
   id: i32,
 ) -> ApplicationResult<Accepted<Json<ResponseMessageDto>>> {
   let message_service = msg_state.inner();
-  let msg = message_service.get(conn.borrow(), id).map_err(|err| {
+  let msg = message_service.get(id).map_err(|err| {
     log::error!("error: {}", err.to_string());
     let err_msg = format!("Cannot retrieve the message because {}", err);
     ErrorResponse::create_error(&err_msg, StatusCode::BadRequest)
@@ -109,7 +104,6 @@ pub fn get_message(
 /// * `token` - The access token used to validate if the user who sent the
 ///   messages is a valid one.
 /// * `jwt_config` - The jwt configuration used to validate the access token.
-/// * `conn` - The database connection.
 /// * `msg_dto` - The message params to retrieve.
 ///
 /// # Return
@@ -119,7 +113,6 @@ pub fn get_message(
 #[post("/", format = "application/json", data = "<msg_dto>")]
 pub fn get_message_from(
   msg_state: State<Box<dyn MessageService>>,
-  conn: DbConnection,
   token: AccessToken,
   jwt_config: State<JwtConfig>,
   msg_dto: Json<MessageDto>,
@@ -128,12 +121,7 @@ pub fn get_message_from(
   match is_valid(token.borrow(), jwt_config.inner(), msg_dto.from) {
     true => {
       let messages = message_service
-        .find(
-          conn.borrow(),
-          msg_dto.id.unwrap(),
-          msg_dto.from,
-          msg_dto.limit,
-        )
+        .find(msg_dto.id.unwrap(), msg_dto.from, msg_dto.limit)
         .map_err(|err| {
           log::error!("error: {}", err.to_string());
           let err_msg = format!("Cannot retrieve the messages because {}", err);

@@ -11,7 +11,7 @@ use crate::{
     },
     user::{NewUser, User},
   },
-  DbConnection, JwtConfig,
+  JwtConfig,
 };
 
 pub trait UserService: Sync + Send {
@@ -26,7 +26,6 @@ pub trait UserService: Sync + Send {
   /// * A NewUser struct to be inserted in the database.
   fn create_user(
     &self,
-    conn: &DbConnection,
     username: String,
     password: String,
   ) -> ServiceResult<i32>;
@@ -34,7 +33,6 @@ pub trait UserService: Sync + Send {
   /// Creates or updates the a login for a specific user.
   ///
   /// # Arguments
-  /// * `conn` - The database connection.
   /// * `jwt_config` - The jwt configuration used to generate the access token.
   /// * `username` - The username of an existing user.
   /// * `password` - The password of the given user.
@@ -44,7 +42,6 @@ pub trait UserService: Sync + Send {
   /// An error instead.
   fn login(
     &self,
-    conn: &DbConnection,
     jwt_config: &JwtConfig,
     username: String,
     password: String,
@@ -53,11 +50,10 @@ pub trait UserService: Sync + Send {
   /// Get the total number of register users.
   ///
   /// # Arguments
-  /// * `conn` - The database connection.
   ///
   /// # Return
   /// * The total number of users.
-  fn total(&self, conn: &DbConnection) -> ServiceResult<i64>;
+  fn total(&self) -> ServiceResult<i64>;
 }
 
 pub struct UserServiceImpl<UserRepo, LoginRepo> {
@@ -94,7 +90,6 @@ where
   /// Creates or updates a login for a valid user.
   ///
   /// # Arguments
-  /// * `conn` - The database connection.
   /// * `jwt_config` - The jwt configuration used to generate the access token.
   /// * `user` - The user that wants to login.
   ///
@@ -103,30 +98,20 @@ where
   /// * An error instead.
   fn for_existing_user(
     &self,
-    conn: &DbConnection,
     jwt_config: &JwtConfig,
     user: &User,
   ) -> ServiceResult<Login> {
     let token = self.create_token(user.get_id(), jwt_config);
     let new_login = NewLogin::new(user.get_username(), token);
-    let login_result = self
-      .login_repository
-      .find(conn.borrow(), user.get_username());
+    let login_result = self.login_repository.find(user.get_username());
 
     match login_result {
       Ok(login_found) => match login_found {
         Some(mut login) => {
           login.update(&new_login)?;
-          Ok(
-            self
-              .login_repository
-              .update(conn.borrow(), login.borrow())
-              .unwrap(),
-          )
+          Ok(self.login_repository.update(login.borrow()).unwrap())
         },
-        None => {
-          Ok(self.login_repository.add(conn.borrow(), new_login).unwrap())
-        },
+        None => Ok(self.login_repository.add(new_login).unwrap()),
       },
       Err(err) => Err(err.to_string()),
     }
@@ -153,7 +138,6 @@ where
 {
   fn create_user(
     &self,
-    conn: &DbConnection,
     username: String,
     password: String,
   ) -> ServiceResult<i32> {
@@ -161,34 +145,28 @@ where
     let new_user = NewUser::new(username, hashed);
     self
       .user_repository
-      .add(conn.borrow(), new_user)
+      .add(new_user)
       .map_err(|err| err.to_string())
   }
 
   fn login(
     &self,
-    conn: &DbConnection,
     jwt_config: &JwtConfig,
     username: String,
     password: String,
   ) -> ServiceResult<Login> {
     let hashed = self.calculate_hash(password);
     let search_user = NewUser::new(username, hashed);
-    let user_result = self.user_repository.find(
-      conn.borrow(),
-      search_user.get_username(),
-      search_user.get_password(),
-    );
+    let user_result = self
+      .user_repository
+      .find(search_user.get_username(), search_user.get_password());
     match user_result {
-      Ok(user) => self.for_existing_user(conn, jwt_config, user.borrow()),
+      Ok(user) => self.for_existing_user(jwt_config, user.borrow()),
       Err(err) => Err(err.to_string()),
     }
   }
 
-  fn total(&self, conn: &DbConnection) -> ServiceResult<i64> {
-    self
-      .user_repository
-      .total(conn.borrow())
-      .map_err(|err| err.to_string())
+  fn total(&self) -> ServiceResult<i64> {
+    self.user_repository.total().map_err(|err| err.to_string())
   }
 }

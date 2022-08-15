@@ -7,12 +7,13 @@ extern crate diesel;
 
 mod application;
 mod auth;
-mod infrastructure;
+mod db;
 mod model;
 mod schema;
 
 use crate::{
   auth::token::JwtConfig,
+  db::database::{establish_connection, DbConnection},
   model::{
     message_service::{MessageService, MessageServiceImpl},
     repository::{
@@ -25,10 +26,6 @@ use crate::{
 };
 use application::{health_handler, message_handler, user_handler};
 use rocket::{config::Environment, routes};
-use rocket_contrib::databases::{database, diesel::SqliteConnection};
-
-#[database("sqlite")]
-pub struct DbConnection(SqliteConnection);
 
 /// Setup the logger based on the environment in which it's been deploy.
 /// If the environment is development then the level of logging is set to Trace.
@@ -79,8 +76,11 @@ pub fn setup_jwtconfig(jwt_secret: String) -> JwtConfig {
 }
 
 fn main() {
-  setup_logger(rocket::Config::active().unwrap().environment);
+  let environment = rocket::Config::active().unwrap().environment;
+  setup_logger(environment);
+
   let rocket = rocket::Rocket::ignite();
+
   let jwt_config = setup_jwtconfig(
     rocket
       .config()
@@ -90,17 +90,21 @@ fn main() {
       .to_string(),
   );
 
+  // Database pool
+  let db_conn = DbConnection::new(establish_connection());
+
+  // Repository initialization
+  let user_repository = UserRepositoryImpl::new(db_conn.clone());
+  let login_repository = LoginRepositoryImpl::new(db_conn.clone());
+  let message_repository = MessageRepositoryImpl::new(db_conn.clone());
+
   // User related initialization
-  let user_repository = UserRepositoryImpl;
-  let login_repository = LoginRepositoryImpl;
   let user_service = UserServiceImpl::new(user_repository, login_repository);
 
   // Messages related initialization
-  let message_repository = MessageRepositoryImpl;
   let message_service = MessageServiceImpl::new(message_repository);
 
   rocket
-    .attach(DbConnection::fairing())
     .manage(jwt_config)
     .manage(Box::new(user_service) as Box<dyn UserService>)
     .manage(Box::new(message_service) as Box<dyn MessageService>)

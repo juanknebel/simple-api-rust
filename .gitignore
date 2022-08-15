@@ -12,3 +12,4 @@ Cargo.lock
 /database
 server/.env
 /examples
+.env
