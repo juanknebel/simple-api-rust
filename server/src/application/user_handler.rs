@@ -9,7 +9,7 @@ use std::borrow::Borrow;
 
 use crate::{
   application::error::{ApplicationResult, ErrorResponse},
-  App, DbConnection, JwtConfig,
+  DbConnection, JwtConfig, UserService,
 };
 
 /// Handles the creation of a new user.
@@ -23,11 +23,11 @@ use crate::{
 /// * 500 Internal error for any other error.
 #[post("/", format = "application/json", data = "<new_user_dto>")]
 pub fn create_user(
-  app: State<Box<dyn App>>,
+  us_state: State<Box<dyn UserService>>,
   conn: DbConnection,
   new_user_dto: Json<UserDto>,
 ) -> ApplicationResult<Created<Json<UserDto>>> {
-  let user_service = app.inner().user_service();
+  let user_service = us_state.inner();
 
   let msg = user_service
     .create_user(
@@ -69,12 +69,12 @@ pub fn create_user(
 /// * 400 Bad request and the error message.
 #[post("/", format = "application/json", data = "<user_dto>")]
 pub fn login(
-  app: State<Box<dyn App>>,
+  us_state: State<Box<dyn UserService>>,
   conn: DbConnection,
   jwt_config: State<JwtConfig>,
   user_dto: Json<UserDto>,
 ) -> ApplicationResult<Accepted<Json<LoginDto>>> {
-  let user_service = app.inner().user_service();
+  let user_service = us_state.inner();
   let login = user_service
     .login(
       conn.borrow(),

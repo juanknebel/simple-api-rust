@@ -12,7 +12,7 @@ use crate::{
   DbConnection, JwtConfig,
 };
 
-pub trait UserService {
+pub trait UserService: Sync + Send {
   /// Creates a new user based and generates the password's hash.
   ///
   /// # Arguments

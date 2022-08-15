@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
   application::error::{ApplicationResult, ErrorResponse, GenericResponse},
   auth::token,
-  App, DbConnection, JwtConfig,
+  DbConnection, JwtConfig, MessageService,
 };
 
 /// Send a message from one user to another one.
@@ -30,13 +30,13 @@ use crate::{
 /// * 401 Unauthorized if the token isn't valid.
 #[post("/send", format = "application/json", data = "<msg_dto>")]
 pub fn send_message(
-  app: State<Box<dyn App>>,
+  msg_state: State<Box<dyn MessageService>>,
   conn: DbConnection,
   token: AccessToken,
   jwt_config: State<JwtConfig>,
   msg_dto: Json<MessageDto>,
 ) -> ApplicationResult<Created<Json<GenericResponse>>> {
-  let message_service = app.inner().message_service();
+  let message_service = msg_state.inner();
   match is_valid(token.borrow(), jwt_config.inner(), msg_dto.from) {
     true => {
       let msg_id = message_service
@@ -81,13 +81,13 @@ pub fn send_message(
 /// * 401 Unauthorized if the token isn't valid (Not implemented yet).
 #[get("/<id>", format = "application/json")]
 pub fn get_message(
-  app: State<Box<dyn App>>,
+  msg_state: State<Box<dyn MessageService>>,
   conn: DbConnection,
   _token: AccessToken,
   _jwt_config: State<JwtConfig>,
   id: i32,
 ) -> ApplicationResult<Accepted<Json<ResponseMessageDto>>> {
-  let message_service = app.inner().message_service();
+  let message_service = msg_state.inner();
   let msg = message_service.get(conn.borrow(), id).map_err(|err| {
     log::error!("error: {}", err.to_string());
     let err_msg = format!("Cannot retrieve the message because {}", err);
@@ -118,13 +118,13 @@ pub fn get_message(
 /// * 401 Unauthorized if the token isn't valid.
 #[post("/", format = "application/json", data = "<msg_dto>")]
 pub fn get_message_from(
-  app: State<Box<dyn App>>,
+  msg_state: State<Box<dyn MessageService>>,
   conn: DbConnection,
   token: AccessToken,
   jwt_config: State<JwtConfig>,
   msg_dto: Json<MessageDto>,
 ) -> ApplicationResult<Accepted<Json<Vec<ResponseMessageDto>>>> {
-  let message_service = app.inner().message_service();
+  let message_service = msg_state.inner();
   match is_valid(token.borrow(), jwt_config.inner(), msg_dto.from) {
     true => {
       let messages = message_service

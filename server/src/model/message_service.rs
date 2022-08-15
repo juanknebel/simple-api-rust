@@ -9,7 +9,7 @@ use crate::{
   DbConnection,
 };
 
-pub trait MessageService {
+pub trait MessageService: Sync + Send {
   /// Creates a new message from a user to another user. Both user must be in
   /// the system.
   ///

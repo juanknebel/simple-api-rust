@@ -11,11 +11,16 @@ mod infrastructure;
 mod model;
 mod schema;
 
-use crate::{application::app::MainApp, auth::token::JwtConfig};
+use crate::{
+  auth::token::JwtConfig,
+  model::{
+    message_service::{MessageService, MessageServiceImpl},
+    user_service::{UserService, UserServiceImpl},
+  },
+};
 use application::{health_handler, message_handler, user_handler};
 use rocket::{config::Environment, routes};
 use rocket_contrib::databases::{database, diesel::SqliteConnection};
-use crate::application::app::App;
 
 #[database("sqlite")]
 pub struct DbConnection(SqliteConnection);
@@ -79,12 +84,12 @@ fn main() {
       .unwrap()
       .to_string(),
   );
-  let app = MainApp{};
 
   rocket
     .attach(DbConnection::fairing())
     .manage(jwt_config)
-    .manage(Box::new(app) as Box<dyn App>)
+    .manage(Box::new(UserServiceImpl) as Box<dyn UserService>)
+    .manage(Box::new(MessageServiceImpl) as Box<dyn MessageService>)
     .mount("/", routes![health_handler::ping,])
     .mount("/users", routes![user_handler::create_user,])
     .mount("/login", routes![user_handler::login,])
