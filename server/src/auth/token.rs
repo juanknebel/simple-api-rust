@@ -8,6 +8,9 @@ use std::{fmt, fmt::Formatter};
 
 use crate::auth::error::{AuthResult, Error};
 
+use dotenv::dotenv;
+use std::env;
+
 const BEARER: &str = "Bearer ";
 
 #[derive(Debug)]
@@ -108,4 +111,24 @@ fn jwt_from_header(token: &AccessToken) -> AuthResult<String> {
     return Err(Error::InvalidAuthHeaderError);
   }
   Ok(token.get_token().trim_start_matches(BEARER).to_string())
+}
+
+/// Initialize the JwtConfig for the entire application.
+///
+/// # Arguments
+/// * `jwt_secret` - The secret use to encode and decode all the jason web
+///   tokens.
+///
+/// # Return
+/// * A new JwtConfig.
+pub fn setup_jwt_config() -> JwtConfig {
+  if cfg!(test) {
+    JwtConfig::new("secret".to_string())
+  } else {
+    dotenv().ok();
+
+    let jwt_secret =
+      env::var("jwt_secret").expect("jwt_secret must be set");
+    JwtConfig::new(jwt_secret)
+  }
 }

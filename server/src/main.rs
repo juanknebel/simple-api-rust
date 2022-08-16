@@ -12,7 +12,7 @@ mod model;
 mod schema;
 
 use crate::{
-  auth::token::JwtConfig,
+  auth::token::{JwtConfig, setup_jwt_config},
   db::database::{establish_connection, DbConnection},
   model::{
     message_service::{MessageService, MessageServiceImpl},
@@ -63,32 +63,12 @@ fn setup_logger(environment: Environment) {
   async_log::Logger::wrap(logger, || 0).start(level).unwrap();
 }
 
-/// Initialize the JwtConfig for the entire application.
-///
-/// # Arguments
-/// * `jwt_secret` - The secret use to encode and decode all the jason web
-///   tokens.
-///
-/// # Return
-/// * A new JwtConfig.
-pub fn setup_jwtconfig(jwt_secret: String) -> JwtConfig {
-  JwtConfig::new(jwt_secret)
-}
-
 fn main() {
   let environment = rocket::Config::active().unwrap().environment;
   setup_logger(environment);
 
-  let rocket = rocket::Rocket::ignite();
-
-  let jwt_config = setup_jwtconfig(
-    rocket
-      .config()
-      .extras
-      .get("jwt_secret")
-      .unwrap()
-      .to_string(),
-  );
+  // Bearer token configuration
+  let jwt_config = setup_jwt_config();
 
   // Database pool
   let db_conn = DbConnection::new(establish_connection());
@@ -104,7 +84,7 @@ fn main() {
   // Messages related initialization
   let message_service = MessageServiceImpl::new(message_repository);
 
-  rocket
+  rocket::Rocket::ignite()
     .manage(jwt_config)
     .manage(Box::new(user_service) as Box<dyn UserService>)
     .manage(Box::new(message_service) as Box<dyn MessageService>)

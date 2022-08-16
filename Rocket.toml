@@ -1,11 +1,7 @@
 [development]
-log_level = "debug"
 address = "127.0.0.1"
 port = 8081
-jwt_secret = "my very super secret"
 
 [production]
-log_level = "critical"
 address = "127.0.0.1"
 port = 8081
-jwt_secret = ""
