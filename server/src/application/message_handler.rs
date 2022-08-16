@@ -185,3 +185,184 @@ fn is_valid(token: &AccessToken, jwt_config: &JwtConfig, id_user: i32) -> bool {
     },
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::{
+    auth::token::create_jwt,
+    model::{message::Builder, message_service::MockMessageService},
+    setup_jwt_config,
+  };
+  use mockall::predicate::{always, eq};
+  use rocket::{
+    http::{ContentType, Header, Status},
+    local::Client,
+  };
+
+  #[test]
+  fn send_message_ok() {
+    let mut mock_ms = MockMessageService::new();
+    mock_ms
+      .expect_create()
+      .with(eq(1), eq(2), eq(String::from("test message")))
+      .times(1)
+      .returning(|_, _, _| Ok(1));
+
+    let jwt_config = setup_jwt_config();
+    let mut token = "Bearer ".to_owned();
+    token.push_str(&*create_jwt(1, &jwt_config).unwrap());
+
+    let rocket = rocket::ignite()
+      .manage(Box::new(mock_ms) as Box<dyn MessageService>)
+      .manage(jwt_config)
+      .mount("/message", routes![send_message,]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+
+    let access_token_header = Header::new("x-access-token", token);
+    let mut request = client
+      .post("/message/send")
+      .body(r#"{ "from": 1, "to": 2, "message": "test message"}"#);
+    request.add_header(ContentType::JSON);
+    request.add_header(access_token_header);
+
+    let mut response = request.dispatch();
+
+    assert_eq!(response.status(), Status::Created);
+    assert_eq!(response.body_string(), Some(String::from("{\"id\":\"1\"}")))
+  }
+
+  #[test]
+  fn send_message_unauthorized() {
+    let mut mock_ms = MockMessageService::new();
+    mock_ms
+      .expect_create()
+      .with(always(), always(), always())
+      .times(0)
+      .returning(|_, _, _| Ok(1));
+
+    let rocket = rocket::ignite()
+      .manage(Box::new(mock_ms) as Box<dyn MessageService>)
+      .manage(setup_jwt_config())
+      .mount("/message", routes![send_message,]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+
+    let access_token_header = Header::new("x-access-token", "Bearer 1");
+    let mut request = client
+      .post("/message/send")
+      .body(r#"{ "from": 1, "to": 2, "message": "test message"}"#);
+    request.add_header(ContentType::JSON);
+    request.add_header(access_token_header);
+
+    let mut response = request.dispatch();
+
+    assert_eq!(response.status(), Status::Unauthorized);
+    assert_eq!(
+      response.body_string(),
+      Some(String::from("{\"message\":\"Access denied\"}"))
+    )
+  }
+
+  #[test]
+  fn send_message_without_access_token() {
+    let mut mock_ms = MockMessageService::new();
+    mock_ms
+      .expect_create()
+      .with(always(), always(), always())
+      .times(0)
+      .returning(|_, _, _| Ok(1));
+
+    let rocket = rocket::ignite()
+      .manage(Box::new(mock_ms) as Box<dyn MessageService>)
+      .manage(setup_jwt_config())
+      .mount("/message", routes![send_message,]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+
+    let response = client
+      .post("/message/send")
+      .body(r#"{ "from": 1, "to": 2, "message": "test message"}"#)
+      .header(ContentType::JSON)
+      .dispatch();
+
+    assert_eq!(response.status(), Status::BadRequest);
+  }
+
+  #[test]
+  fn get_message_ok() {
+    let message = Builder::new()
+      .with_id(1)
+      .with_from(1)
+      .with_to(2)
+      .with_message("Some message")
+      .build();
+
+    let mut mock_ms = MockMessageService::new();
+    mock_ms
+      .expect_get()
+      .with(eq(1))
+      .times(1)
+      .returning(move |_| Ok(message.clone()));
+
+    let jwt_config = setup_jwt_config();
+    let mut token = "Bearer ".to_owned();
+    token.push_str(&*create_jwt(1, &jwt_config).unwrap());
+
+    let rocket = rocket::ignite()
+      .manage(Box::new(mock_ms) as Box<dyn MessageService>)
+      .manage(jwt_config)
+      .mount("/message", routes![get_message,]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+
+    let access_token_header = Header::new("x-access-token", token);
+    let mut request = client.get("/message/1");
+    request.add_header(ContentType::JSON);
+    request.add_header(access_token_header);
+
+    let mut response = request.dispatch();
+
+    assert_eq!(response.status(), Status::Accepted);
+    assert_eq!(
+      response.body_string(),
+      Some(String::from("{\"message\":\"Some message\"}"))
+    )
+  }
+
+  #[test]
+  fn get_message_non_existing() {
+    let mut mock_ms = MockMessageService::new();
+    mock_ms
+      .expect_get()
+      .with(eq(1))
+      .times(1)
+      .returning(|_| Err(String::from("some error")));
+
+    let jwt_config = setup_jwt_config();
+
+    let rocket = rocket::ignite()
+      .manage(Box::new(mock_ms) as Box<dyn MessageService>)
+      .manage(jwt_config)
+      .mount("/message", routes![get_message,]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+
+    let access_token_header = Header::new("x-access-token", "Bearer token");
+    let mut request = client.get("/message/1");
+    request.add_header(ContentType::JSON);
+    request.add_header(access_token_header);
+
+    let mut response = request.dispatch();
+
+    assert_eq!(response.status(), Status::BadRequest);
+    assert_eq!(
+      response.body_string(),
+      Some(String::from(
+        "{\"message\":\"Cannot retrieve the message because some error\"}"
+      ))
+    )
+  }
+
+  #[test]
+  fn get_message_from_ok() {}
+
+  #[test]
+  fn get_message_from_ok_empty_messages() {}
+}

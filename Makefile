@@ -17,7 +17,7 @@ ensure-deps:
 .PHONY: test
 test:
 	@echo "=> Running tests"
-	# go test ./... -covermode=atomic -coverpkg=./... -count=1 -race
+	cargo test
 
 ### Formatting, linting, and deps
 .PHONY: fmt
@@ -26,7 +26,8 @@ fmt:
 	rustfmt ./server/src/*.rs;
 	rustfmt ./server/src/application/*.rs;
 	rustfmt ./server/src/auth/*.rs;
-	#rustfmt ./server/src/db/*.rs;
+	rustfmt ./server/src/db/*.rs;
+	rustfmt ./server/src/log/*.rs;
 	rustfmt ./server/src/model/repository/*.rs;
 	rustfmt ./server/src/model/*.rs;
 
@@ -50,30 +51,24 @@ run:
 ### Create docker image
 .PHONY: create-image
 create-image:
-	@echo "==> Creating docker image..."
-	docker build . -t asapp-challenge
+	@echo "==> todo!..."
 
 ### Run docker image
 .PHONY: run-docker
 run-docker:
-	@echo "==> Runnning asapp docker container..."
-	 docker run --name=asapp -p 8080:8080 asapp-challenge
+	@echo "==> todo!..."
 
 ## Run docker image
 .PHONY: remove-docker
 remove-docker:
-	@echo "==> Removing asapp docker container..."
-	docker rm asapp
+	@echo "==> todo!..."
 
 ## Stop docker image
 .PHONY: stop-docker
 stop-docker:
-	@echo "==> Stopping asapp docker container..."
-	docker stop asapp
+	@echo "==> todo!..."
 
 ## Start docker image
 .PHONY: start-docker
 start-docker:
-	@echo "==> Starting asapp docker container..."
-	docker start asapp
-
+	@echo "==> todo!..."

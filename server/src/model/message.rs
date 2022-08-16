@@ -2,7 +2,7 @@ use crate::schema::messages;
 use diesel::{Identifiable, Insertable, Queryable};
 use serde::{Deserialize, Serialize};
 
-#[derive(Identifiable, Queryable, Serialize)]
+#[derive(Identifiable, Queryable, Serialize, Clone)]
 pub struct Message {
   id: i32,
   from: i32,
@@ -43,5 +43,54 @@ impl NewMessage {
 
   pub fn get_from(&self) -> i32 {
     return self.from;
+  }
+}
+
+#[cfg(test)]
+pub struct Builder {
+  id: Option<i32>,
+  from: Option<i32>,
+  to: Option<i32>,
+  message: Option<String>,
+}
+
+#[cfg(test)]
+impl Builder {
+  pub fn new() -> Self {
+    Builder {
+      id: None,
+      from: None,
+      to: None,
+      message: None,
+    }
+  }
+
+  pub fn with_id(mut self, the_id: i32) -> Builder {
+    self.id = Some(the_id);
+    self
+  }
+
+  pub fn with_from(mut self, from: i32) -> Builder {
+    self.from = Some(from);
+    self
+  }
+
+  pub fn with_to(mut self, to: i32) -> Builder {
+    self.to = Some(to);
+    self
+  }
+
+  pub fn with_message(mut self, message: &str) -> Builder {
+    self.message = Some(message.to_owned());
+    self
+  }
+
+  pub fn build(&self) -> Message {
+    Message {
+      id: *self.id.as_ref().unwrap_or(&0),
+      from: *self.from.as_ref().unwrap_or(&0),
+      to: *self.to.as_ref().unwrap_or(&0),
+      message: String::from(self.message.as_deref().unwrap()),
+    }
   }
 }

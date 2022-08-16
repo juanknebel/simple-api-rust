@@ -102,3 +102,140 @@ pub struct LoginDto {
   id: i32,
   token: String,
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::{
+    model::{login::Builder, user_service::MockUserService},
+    setup_jwt_config,
+  };
+  use mockall::predicate::{always, eq};
+  use rocket::{
+    http::{ContentType, Status},
+    local::Client,
+  };
+
+  #[test]
+  fn create_user_ok() {
+    let mut mock_us = MockUserService::new();
+    mock_us
+      .expect_create_user()
+      .with(eq(String::from("juan")), eq(String::from("password")))
+      .times(1)
+      .returning(|_, _| Ok(1));
+
+    let rocket = rocket::ignite()
+      .manage(Box::new(mock_us) as Box<dyn UserService>)
+      .mount("/users", routes![create_user,]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+
+    let mut response = client
+      .post("/users")
+      .body(r#"{ "username": "juan", "password": "password"}"#)
+      .header(ContentType::JSON)
+      .dispatch();
+    assert_eq!(response.status(), Status::Created);
+    assert_eq!(
+      response.body_string(),
+      Some(String::from("{\"id\":1,\"username\":\"juan\"}"))
+    )
+  }
+
+  #[test]
+  fn create_user_fail() {
+    let mut mock_us = MockUserService::new();
+    mock_us
+      .expect_create_user()
+      .with(eq(String::from("juan")), eq(String::from("password")))
+      .times(1)
+      .returning(|_, _| Err(String::from("cannot create user")));
+
+    let rocket = rocket::ignite()
+      .manage(Box::new(mock_us) as Box<dyn UserService>)
+      .mount("/users", routes![create_user,]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+
+    let mut response = client
+      .post("/users")
+      .body(r#"{ "username": "juan", "password": "password"}"#)
+      .header(ContentType::JSON)
+      .dispatch();
+    assert_eq!(response.status(), Status::BadRequest);
+    assert_eq!(
+      response.body_string(),
+      Some(String::from(
+        "{\"message\":\"Cannot insert the username juan because cannot create \
+         user\"}"
+      ))
+    )
+  }
+
+  #[test]
+  fn login_ok() {
+    let mut mock_us = MockUserService::new();
+    let login = Builder::new()
+      .with_id(1)
+      .with_username("juan")
+      .with_token("mytoken")
+      .build();
+
+    mock_us
+      .expect_login()
+      .with(
+        always(),
+        eq(String::from("juan")),
+        eq(String::from("password")),
+      )
+      .times(1)
+      .returning(move |_, _, _| Ok(login.clone()));
+
+    let rocket = rocket::ignite()
+      .manage(Box::new(mock_us) as Box<dyn UserService>)
+      .manage(setup_jwt_config())
+      .mount("/login", routes![login,]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+
+    let mut response = client
+      .post("/login")
+      .body(r#"{ "username": "juan", "password": "password"}"#)
+      .header(ContentType::JSON)
+      .dispatch();
+    assert_eq!(response.status(), Status::Accepted);
+    assert_eq!(
+      response.body_string(),
+      Some(String::from("{\"id\":1,\"token\":\"mytoken\"}"))
+    )
+  }
+
+  #[test]
+  fn login_fail() {
+    let mut mock_us = MockUserService::new();
+    mock_us
+      .expect_login()
+      .with(
+        always(),
+        eq(String::from("juan")),
+        eq(String::from("password")),
+      )
+      .times(1)
+      .returning(|_, _, _| Err(String::from("invalid password")));
+
+    let rocket = rocket::ignite()
+      .manage(Box::new(mock_us) as Box<dyn UserService>)
+      .manage(setup_jwt_config())
+      .mount("/login", routes![login,]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+
+    let mut response = client
+      .post("/login")
+      .body(r#"{ "username": "juan", "password": "password"}"#)
+      .header(ContentType::JSON)
+      .dispatch();
+    assert_eq!(response.status(), Status::BadRequest);
+    assert_eq!(
+      response.body_string(),
+      Some(String::from("{\"message\":\"Invalid credentials\"}"))
+    )
+  }
+}

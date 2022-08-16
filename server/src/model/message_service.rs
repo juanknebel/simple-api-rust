@@ -3,7 +3,10 @@ use crate::model::{
   message::{Message, NewMessage},
   repository::message_repository::MessageRepository,
 };
+#[cfg(test)]
+use mockall::automock;
 
+#[cfg_attr(test, automock)]
 pub trait MessageService: Sync + Send {
   /// Creates a new message from a user to another user. Both user must be in
   /// the system.

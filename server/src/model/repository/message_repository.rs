@@ -13,7 +13,10 @@ use crate::{
   },
   DbConnection,
 };
+#[cfg(test)]
+use mockall::automock;
 
+#[cfg_attr(test, automock)]
 pub trait MessageRepository {
   /// Insert a message in the database
   ///

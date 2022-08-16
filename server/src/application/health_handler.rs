@@ -25,3 +25,46 @@ pub fn ping(
     )),
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::model::user_service::MockUserService;
+  use rocket::{http::Status, local::Client};
+
+  #[test]
+  fn ping_ok() {
+    let mut mock_us = MockUserService::new();
+    mock_us.expect_total().times(1).returning(|| Ok(1));
+
+    let rocket = rocket::ignite()
+      .manage(Box::new(mock_us) as Box<dyn UserService>)
+      .mount("/", routes![ping,]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+
+    let mut response = client.get("/ping").dispatch();
+    assert_eq!(response.status(), Status::Accepted);
+    assert_eq!(response.body_string(), Some(String::from("pong")))
+  }
+
+  #[test]
+  fn ping_fail() {
+    let mut mock_us = MockUserService::new();
+    mock_us
+      .expect_total()
+      .times(1)
+      .returning(|| Err(String::from("some error")));
+
+    let rocket = rocket::ignite()
+      .manage(Box::new(mock_us) as Box<dyn UserService>)
+      .mount("/", routes![ping,]);
+    let client = Client::new(rocket).expect("valid rocket instance");
+
+    let mut response = client.get("/ping").dispatch();
+    assert_eq!(response.status(), Status::InternalServerError);
+    assert_eq!(
+      response.body_string(),
+      Some(String::from("{\"message\":\"some error\"}"))
+    )
+  }
+}

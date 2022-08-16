@@ -14,6 +14,10 @@ use crate::{
   DbConnection,
 };
 
+#[cfg(test)]
+use mockall::automock;
+
+#[cfg_attr(test, automock)]
 pub trait UserRepository {
   /// Insert a user in the database
   ///

@@ -12,6 +12,10 @@ use crate::{
 use diesel::{prelude::*, result::Error};
 use std::{borrow::Borrow, ops::Deref};
 
+#[cfg(test)]
+use mockall::automock;
+
+#[cfg_attr(test, automock)]
 pub trait LoginRepository {
   /// Insert a login in the database
   ///
