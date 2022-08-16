@@ -127,8 +127,7 @@ pub fn setup_jwt_config() -> JwtConfig {
   } else {
     dotenv().ok();
 
-    let jwt_secret =
-      env::var("jwt_secret").expect("jwt_secret must be set");
+    let jwt_secret = env::var("jwt_secret").expect("jwt_secret must be set");
     JwtConfig::new(jwt_secret)
   }
 }
