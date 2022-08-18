@@ -13,11 +13,12 @@ mod model;
 mod schema;
 
 use crate::{
-  auth::token::{setup_jwt_config, JwtConfig},
+  auth::token::{Authenticator, BearerAuthenticator},
   db::database::{establish_connection, DbConnection},
   log::log::setup_logger,
   model::{
     message_service::{MessageService, MessageServiceImpl},
+    password::SimpleHasher,
     repository::{
       login_repository::LoginRepositoryImpl,
       message_repository::MessageRepositoryImpl,
@@ -34,7 +35,7 @@ fn main() {
   setup_logger();
 
   // Bearer token configuration
-  let jwt_config = setup_jwt_config();
+  let authenticator = BearerAuthenticator::new();
 
   // Database pool
   let db_conn = DbConnection::new(establish_connection());
@@ -45,13 +46,15 @@ fn main() {
   let message_repository = MessageRepositoryImpl::new(db_conn.clone());
 
   // User related initialization
-  let user_service = UserServiceImpl::new(user_repository, login_repository);
+  let password_hasher = SimpleHasher::default();
+  let user_service =
+    UserServiceImpl::new(user_repository, login_repository, password_hasher);
 
   // Messages related initialization
   let message_service = MessageServiceImpl::new(message_repository);
 
   rocket::Rocket::ignite()
-    .manage(jwt_config)
+    .manage(Box::new(authenticator) as Box<dyn Authenticator>)
     .manage(Box::new(user_service) as Box<dyn UserService>)
     .manage(Box::new(message_service) as Box<dyn MessageService>)
     .mount("/", routes![health_handler::ping,])

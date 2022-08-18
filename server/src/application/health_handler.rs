@@ -7,6 +7,9 @@ use crate::{
 
 /// Implements a pong end point.
 ///
+/// # Arguments
+/// * `us_state` - The user service to check if the database is ok.
+///
 /// # Return
 /// * 200 and pong message if we can make a simple sql query.
 /// * 500 and the error message.

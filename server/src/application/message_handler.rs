@@ -11,16 +11,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
   application::error::{ApplicationResult, ErrorResponse, GenericResponse},
-  auth::token,
-  JwtConfig, MessageService,
+  Authenticator, MessageService,
 };
 
 /// Send a message from one user to another one.
 ///
 /// # Arguments
+/// * `msg_state` - The message service.
+/// * `auth_state` - The authenticator used to validate the access token.
 /// * `token` - The access token used to validate if the user who sent the
 ///   messages is a valid one.
-/// * `jwt_config` - The jwt configuration used to validate the access token.
 /// * `msg_dto` - The message dto to persist.
 ///
 /// # Return
@@ -30,13 +30,14 @@ use crate::{
 #[post("/send", format = "application/json", data = "<msg_dto>")]
 pub fn send_message(
   msg_state: State<Box<dyn MessageService>>,
+  auth_state: State<Box<dyn Authenticator>>,
   token: AccessToken,
-  jwt_config: State<JwtConfig>,
   msg_dto: Json<MessageDto>,
 ) -> ApplicationResult<Created<Json<GenericResponse>>> {
   let message_service = msg_state.inner();
-  match is_valid(token.borrow(), jwt_config.inner(), msg_dto.from) {
-    true => {
+  let authenticator = auth_state.inner();
+  match authenticator.authorize(token.borrow(), msg_dto.from) {
+    Ok(_) => {
       let msg_id = message_service
         .create(
           msg_dto.from,
@@ -56,7 +57,7 @@ pub fn send_message(
         Option::from(Json(response)),
       ))
     },
-    false => Err(ErrorResponse::create_error(
+    Err(_) => Err(ErrorResponse::create_error(
       "Access denied",
       StatusCode::Unauthorized,
     )),
@@ -66,9 +67,10 @@ pub fn send_message(
 /// Get a message from its id.
 ///
 /// # Arguments
+/// * `msg_state` - The message service.
+/// * `auth_state` - The authenticator used to validate the access token.
 /// * `token` - The access token used to validate if the user who sent the
 ///   messages is a valid one.
-/// * `jwt_config` - The jwt configuration used to validate the access token.
 /// * `id` - The message id to retrieve.
 ///
 /// # Return
@@ -78,8 +80,8 @@ pub fn send_message(
 #[get("/<id>", format = "application/json")]
 pub fn get_message(
   msg_state: State<Box<dyn MessageService>>,
+  _auth_state: State<Box<dyn Authenticator>>,
   _token: AccessToken,
-  _jwt_config: State<JwtConfig>,
   id: i32,
 ) -> ApplicationResult<Accepted<Json<ResponseMessageDto>>> {
   let message_service = msg_state.inner();
@@ -101,9 +103,10 @@ pub fn get_message(
 /// limit.
 ///
 /// # Arguments
+/// * `msg_state` - The message service.
+/// * `auth_state` - The authenticator used to validate the access token.
 /// * `token` - The access token used to validate if the user who sent the
 ///   messages is a valid one.
-/// * `jwt_config` - The jwt configuration used to validate the access token.
 /// * `msg_dto` - The message params to retrieve.
 ///
 /// # Return
@@ -113,13 +116,14 @@ pub fn get_message(
 #[post("/", format = "application/json", data = "<msg_dto>")]
 pub fn get_message_from(
   msg_state: State<Box<dyn MessageService>>,
+  auth_state: State<Box<dyn Authenticator>>,
   token: AccessToken,
-  jwt_config: State<JwtConfig>,
   msg_dto: Json<MessageDto>,
 ) -> ApplicationResult<Accepted<Json<Vec<ResponseMessageDto>>>> {
   let message_service = msg_state.inner();
-  match is_valid(token.borrow(), jwt_config.inner(), msg_dto.from) {
-    true => {
+  let authenticator = auth_state.inner();
+  match authenticator.authorize(token.borrow(), msg_dto.from) {
+    Ok(_) => {
       let messages = message_service
         .find(msg_dto.id.unwrap(), msg_dto.from, msg_dto.limit)
         .map_err(|err| {
@@ -138,7 +142,7 @@ pub fn get_message_from(
         .collect::<Vec<ResponseMessageDto>>();
       Ok(Accepted(Option::from(Json(messages_dto))))
     },
-    false => {
+    Err(_) => {
       log::error!("error: Access denied");
       Err(ErrorResponse::create_error(
         "Access denied",
@@ -166,33 +170,12 @@ pub struct ResponseMessageDto {
   message: String,
 }
 
-/// Validate if a token belongs to a specific user.
-///
-/// # Arguments
-/// * `token` - The access token to be validated.
-/// * `jwt_config` - The jwt configuration use to validate.
-/// * `id_user` - The user_id to check if the token matches.
-///
-/// # Return
-/// * True if the access token is valid and belongs to the user.
-/// * False otherwise.
-fn is_valid(token: &AccessToken, jwt_config: &JwtConfig, id_user: i32) -> bool {
-  match token::authorize(token, id_user, jwt_config) {
-    Ok(_) => true,
-    Err(err) => {
-      log::debug!("error: {}", err.to_string());
-      false
-    },
-  }
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
   use crate::{
-    auth::token::create_jwt,
+    auth::{error::Error::NoPermissionError, token::MockAuthenticator},
     model::{message::Builder, message_service::MockMessageService},
-    setup_jwt_config,
   };
   use mockall::predicate::{always, eq};
   use rocket::{
@@ -208,18 +191,20 @@ mod tests {
       .with(eq(1), eq(2), eq(String::from("test message")))
       .times(1)
       .returning(|_, _, _| Ok(1));
-
-    let jwt_config = setup_jwt_config();
-    let mut token = "Bearer ".to_owned();
-    token.push_str(&*create_jwt(1, &jwt_config).unwrap());
+    let mut mock_auth = MockAuthenticator::new();
+    mock_auth
+      .expect_authorize()
+      .with(always(), eq(1))
+      .times(1)
+      .returning(|_, _| Ok(()));
 
     let rocket = rocket::ignite()
       .manage(Box::new(mock_ms) as Box<dyn MessageService>)
-      .manage(jwt_config)
+      .manage(Box::new(mock_auth) as Box<dyn Authenticator>)
       .mount("/message", routes![send_message,]);
     let client = Client::new(rocket).expect("valid rocket instance");
 
-    let access_token_header = Header::new("x-access-token", token);
+    let access_token_header = Header::new("x-access-token", "Bearer 1");
     let mut request = client
       .post("/message/send")
       .body(r#"{ "from": 1, "to": 2, "message": "test message"}"#);
@@ -240,10 +225,16 @@ mod tests {
       .with(always(), always(), always())
       .times(0)
       .returning(|_, _, _| Ok(1));
+    let mut mock_auth = MockAuthenticator::new();
+    mock_auth
+      .expect_authorize()
+      .with(always(), eq(1))
+      .times(1)
+      .returning(|_, _| Err(NoPermissionError));
 
     let rocket = rocket::ignite()
       .manage(Box::new(mock_ms) as Box<dyn MessageService>)
-      .manage(setup_jwt_config())
+      .manage(Box::new(mock_auth) as Box<dyn Authenticator>)
       .mount("/message", routes![send_message,]);
     let client = Client::new(rocket).expect("valid rocket instance");
 
@@ -271,10 +262,12 @@ mod tests {
       .with(always(), always(), always())
       .times(0)
       .returning(|_, _, _| Ok(1));
+    let mut mock_auth = MockAuthenticator::new();
+    mock_auth.expect_authorize().with(always(), eq(1)).times(0);
 
     let rocket = rocket::ignite()
       .manage(Box::new(mock_ms) as Box<dyn MessageService>)
-      .manage(setup_jwt_config())
+      .manage(Box::new(mock_auth) as Box<dyn Authenticator>)
       .mount("/message", routes![send_message,]);
     let client = Client::new(rocket).expect("valid rocket instance");
 
@@ -302,18 +295,20 @@ mod tests {
       .with(eq(1))
       .times(1)
       .returning(move |_| Ok(message.clone()));
-
-    let jwt_config = setup_jwt_config();
-    let mut token = "Bearer ".to_owned();
-    token.push_str(&*create_jwt(1, &jwt_config).unwrap());
+    let mut mock_auth = MockAuthenticator::new();
+    mock_auth
+      .expect_authorize()
+      .with(always(), eq(1))
+      .times(0)
+      .returning(|_, _| Ok(()));
 
     let rocket = rocket::ignite()
       .manage(Box::new(mock_ms) as Box<dyn MessageService>)
-      .manage(jwt_config)
+      .manage(Box::new(mock_auth) as Box<dyn Authenticator>)
       .mount("/message", routes![get_message,]);
     let client = Client::new(rocket).expect("valid rocket instance");
 
-    let access_token_header = Header::new("x-access-token", token);
+    let access_token_header = Header::new("x-access-token", "Bearer 1");
     let mut request = client.get("/message/1");
     request.add_header(ContentType::JSON);
     request.add_header(access_token_header);
@@ -335,16 +330,20 @@ mod tests {
       .with(eq(1))
       .times(1)
       .returning(|_| Err(String::from("some error")));
-
-    let jwt_config = setup_jwt_config();
+    let mut mock_auth = MockAuthenticator::new();
+    mock_auth
+      .expect_authorize()
+      .with(always(), eq(0))
+      .times(0)
+      .returning(|_, _| Ok(()));
 
     let rocket = rocket::ignite()
       .manage(Box::new(mock_ms) as Box<dyn MessageService>)
-      .manage(jwt_config)
+      .manage(Box::new(mock_auth) as Box<dyn Authenticator>)
       .mount("/message", routes![get_message,]);
     let client = Client::new(rocket).expect("valid rocket instance");
 
-    let access_token_header = Header::new("x-access-token", "Bearer token");
+    let access_token_header = Header::new("x-access-token", "Bearer 1");
     let mut request = client.get("/message/1");
     request.add_header(ContentType::JSON);
     request.add_header(access_token_header);

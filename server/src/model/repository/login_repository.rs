@@ -30,7 +30,7 @@ pub trait LoginRepository {
   /// Look for a login for the given username.
   ///
   /// # Arguments
-  /// * `username` - The username to look for.
+  /// * `the_username` - The username to look for.
   ///
   /// # Return
   /// * An Option for the login struct.
@@ -64,8 +64,8 @@ impl LoginRepositoryImpl {
   /// Look for a login based on its natural keys (username, token).
   ///
   /// # Arguments
-  /// * `username` - The username to look for.
-  /// * `token` - The token to look for.
+  /// * `the_username` - The username to look for.
+  /// * `the_token` - The token to look for.
   ///
   /// # Return
   /// * The login struct.

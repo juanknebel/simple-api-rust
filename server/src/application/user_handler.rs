@@ -5,13 +5,18 @@ use rocket::{
 };
 use rocket_contrib::json::Json;
 use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
 
 use crate::{
   application::error::{ApplicationResult, ErrorResponse},
-  JwtConfig, UserService,
+  Authenticator, UserService,
 };
 
 /// Handles the creation of a new user.
+///
+/// # Arguments
+/// * `us_state` - The user service.
+/// * `user_dto` - The new user to be created.
 ///
 /// # Return
 /// A Result type:
@@ -57,7 +62,8 @@ pub fn create_user(
 /// and replace the old one.
 ///
 /// # Arguments
-/// * `jwt_config` - The jwt configuration used to generate the access token.
+/// * `us_state` - The user service.
+/// * `auth_state` - The authenticator used to validate the access token.
 /// * `user_dto` - The user data to make the login.
 ///
 /// # Return
@@ -66,21 +72,29 @@ pub fn create_user(
 #[post("/", format = "application/json", data = "<user_dto>")]
 pub fn login(
   us_state: State<Box<dyn UserService>>,
-  jwt_config: State<JwtConfig>,
+  auth_state: State<Box<dyn Authenticator>>,
   user_dto: Json<UserDto>,
 ) -> ApplicationResult<Accepted<Json<LoginDto>>> {
   let user_service = us_state.inner();
-  let login = user_service
-    .login(
-      jwt_config.inner(),
-      user_dto.username.to_string(),
-      user_dto.password.to_string(),
-    )
+  let authenticator = auth_state.inner();
+
+  let user = user_service
+    .find_user(user_dto.username.to_string(), user_dto.password.to_string())
     .map_err(|err| {
       log::debug!("{}", err.to_string());
       let err_msg = String::from("Invalid credentials");
       ErrorResponse::create_error(&err_msg, StatusCode::BadRequest)
     })?;
+  let token = authenticator.create_token(user.get_id()).map_err(|err| {
+    log::debug!("{}", err.to_string());
+    let err_msg = String::from("Cannot create the token");
+    ErrorResponse::create_error(&err_msg, StatusCode::InternalServerError)
+  })?;
+  let login = user_service.login(user.borrow(), token).map_err(|err| {
+    log::debug!("{}", err.to_string());
+    let err_msg = String::from("Cannot make the login");
+    ErrorResponse::create_error(&err_msg, StatusCode::InternalServerError)
+  })?;
 
   let dto = LoginDto {
     token: login.get_token(),
@@ -107,8 +121,11 @@ pub struct LoginDto {
 mod tests {
   use super::*;
   use crate::{
-    model::{login::Builder, user_service::MockUserService},
-    setup_jwt_config,
+    auth::token::MockAuthenticator,
+    model::{
+      login::Builder, user::Builder as UserBuilder,
+      user_service::MockUserService,
+    },
   };
   use mockall::predicate::{always, eq};
   use rocket::{
@@ -174,25 +191,39 @@ mod tests {
   #[test]
   fn login_ok() {
     let mut mock_us = MockUserService::new();
+
+    let user = UserBuilder::new()
+      .with_id(1)
+      .with_username("juan")
+      .with_hashed_password("password")
+      .build();
+    mock_us
+      .expect_find_user()
+      .with(eq(String::from("juan")), eq(String::from("password")))
+      .times(1)
+      .returning(move |_, _| Ok(user.clone()));
+
     let login = Builder::new()
       .with_id(1)
       .with_username("juan")
-      .with_token("mytoken")
+      .with_token("my_token")
       .build();
-
     mock_us
       .expect_login()
-      .with(
-        always(),
-        eq(String::from("juan")),
-        eq(String::from("password")),
-      )
+      .with(always(), eq(String::from("my_token")))
       .times(1)
-      .returning(move |_, _, _| Ok(login.clone()));
+      .returning(move |_, _| Ok(login.clone()));
+
+    let mut mock_auth = MockAuthenticator::new();
+    mock_auth
+      .expect_create_token()
+      .with(eq(1))
+      .times(1)
+      .returning(|_| Ok("my_token".to_string()));
 
     let rocket = rocket::ignite()
       .manage(Box::new(mock_us) as Box<dyn UserService>)
-      .manage(setup_jwt_config())
+      .manage(Box::new(mock_auth) as Box<dyn Authenticator>)
       .mount("/login", routes![login,]);
     let client = Client::new(rocket).expect("valid rocket instance");
 
@@ -204,7 +235,7 @@ mod tests {
     assert_eq!(response.status(), Status::Accepted);
     assert_eq!(
       response.body_string(),
-      Some(String::from("{\"id\":1,\"token\":\"mytoken\"}"))
+      Some(String::from("{\"id\":1,\"token\":\"my_token\"}"))
     )
   }
 
@@ -212,18 +243,18 @@ mod tests {
   fn login_fail() {
     let mut mock_us = MockUserService::new();
     mock_us
-      .expect_login()
-      .with(
-        always(),
-        eq(String::from("juan")),
-        eq(String::from("password")),
-      )
+      .expect_find_user()
+      .with(eq(String::from("juan")), eq(String::from("password")))
       .times(1)
-      .returning(|_, _, _| Err(String::from("invalid password")));
+      .returning(move |_, _| Err(String::from("invalid password")));
+    mock_us.expect_login().times(0);
+
+    let mut mock_auth = MockAuthenticator::new();
+    mock_auth.expect_create_token().times(0);
 
     let rocket = rocket::ignite()
       .manage(Box::new(mock_us) as Box<dyn UserService>)
-      .manage(setup_jwt_config())
+      .manage(Box::new(mock_auth) as Box<dyn Authenticator>)
       .mount("/login", routes![login,]);
     let client = Client::new(rocket).expect("valid rocket instance");
 
