@@ -1,11 +1,11 @@
 .PHONY: all
 all: fmt ensure-deps test debug
 
-### Create the database folder
+### Create the database folder and the databases file for sqlite
 .PHONY: generate-database
 generate-database:
 	@echo "=> Creating database"
-	mkdir database
+	mkdir database; touch database/testing_db.db; touch database/production_db.db
 
 ### Sync dependencies
 .PHONY: ensure-deps

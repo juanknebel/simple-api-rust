@@ -11,12 +11,15 @@ pub fn setup_logger() {
   use log::LevelFilter;
   let level_filter;
   let log_level;
+  let file_path;
 
   if cfg!(test) {
-    log_level = String::from("test");
+    log_level = "test".to_string();
+    file_path = "/dev/null".to_string();
   } else {
     dotenv().ok();
     log_level = env::var("log_level").expect("log_level must be set");
+    file_path = "logs/application.log".to_string();
   }
 
   match log_level.as_str() {
@@ -38,8 +41,8 @@ pub fn setup_logger() {
     .level(level_filter)
     .chain(std::io::stdout())
     .chain(
-      fern::log_file("logs/application.log")
-        .unwrap_or_else(|_| panic!("Cannot open logs/application.log")),
+      fern::log_file(file_path.as_str())
+        .unwrap_or_else(|_| panic!("Cannot open {}", file_path.as_str())),
     )
     .into_log();
   async_log::Logger::wrap(logger, || 0).start(level).unwrap();
