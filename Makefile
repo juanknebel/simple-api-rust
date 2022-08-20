@@ -1,7 +1,16 @@
 .PHONY: all
 all: fmt deps test debug
 
-### Create the database folder and the databases file for sqlite
+### Creates the environment files to run the app in a local environment with testing and production options.
+.PHONY: generate-envs
+generate-envs:
+	@echo "=> Creating database"
+	printf "DATABASE_URL=./database/testing_db.db\njwt_secret = \"my very super secret\"\nlog_level = \"debug\"" | tee .env;
+	printf "DATABASE_URL=./database/production_db.db\njwt_secret = \"secret\"\nlog_level = \"trace\"" | tee .env.prod;
+	printf "DATABASE_URL=../database/testing_db.db" | tee ./server/.env;
+	printf "DATABASE_URL=../database/production_db.db" | tee ./server/.env.prod;
+
+### Creates the database folder and the databases file for sqlite
 .PHONY: generate-database
 generate-database:
 	@echo "=> Creating database"

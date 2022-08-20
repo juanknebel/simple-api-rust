@@ -6,6 +6,9 @@ repository = "https://github.com/juanknebel/simple-api-rust"
 license = "GPL 2.0"
 authors = ["Juan Knebel <juanknebel@gmail.com>"]
 description = "A simple api to learn rust"
+readme = "README.md"
+keywords = ["api", "swagger", "rocket"]
+categories = ["web-programming"]
 
 [[bin]]
 name = "server"
