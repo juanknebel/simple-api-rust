@@ -1,9 +1,9 @@
-use rocket::{http::hyper::StatusCode, response::status::Accepted, State};
-
 use crate::{
   application::error::{ApplicationResult, ErrorResponse},
   UserService,
 };
+
+use rocket::{http::hyper::StatusCode, response::status::Accepted, State};
 
 /// Implements a pong end point.
 ///
@@ -11,8 +11,14 @@ use crate::{
 /// * `us_state` - The user service to check if the database is ok.
 ///
 /// # Return
-/// * 200 and pong message if we can make a simple sql query.
+/// * 202 and pong message if we can make a simple sql query.
 /// * 500 and the error message.
+#[utoipa::path(
+responses(
+  (status = 202, description = "The server is ok"),
+  (status = 500, description = "The server is malfunction")
+),
+)]
 #[get("/ping")]
 pub fn ping(
   us_state: State<Box<dyn UserService>>,

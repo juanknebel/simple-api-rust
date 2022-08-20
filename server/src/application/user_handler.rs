@@ -1,3 +1,8 @@
+use crate::{
+  application::error::{ApplicationResult, ErrorResponse},
+  Authenticator, UserService,
+};
+
 use rocket::{
   http::hyper::StatusCode,
   response::status::{Accepted, Created},
@@ -6,11 +11,7 @@ use rocket::{
 use rocket_contrib::json::Json;
 use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
-
-use crate::{
-  application::error::{ApplicationResult, ErrorResponse},
-  Authenticator, UserService,
-};
+use utoipa::Component;
 
 /// Handles the creation of a new user.
 ///
@@ -25,14 +26,23 @@ use crate::{
 ///   specific
 /// description.
 /// * 500 Internal error for any other error.
+#[utoipa::path(
+context_path = "/users",
+request_body = UserDto,
+responses(
+(status = 201, description = "The user was created", body = ResponseUserDto),
+(status = 400, description = "Bad request"),
+(status = 500, description = "Internal error")
+),
+)]
 #[post("/", format = "application/json", data = "<new_user_dto>")]
 pub fn create_user(
   us_state: State<Box<dyn UserService>>,
   new_user_dto: Json<UserDto>,
-) -> ApplicationResult<Created<Json<UserDto>>> {
+) -> ApplicationResult<Created<Json<ResponseUserDto>>> {
   let user_service = us_state.inner();
 
-  let msg = user_service
+  let id_user = user_service
     .create_user(
       new_user_dto.username.to_string(),
       new_user_dto.password.to_string(),
@@ -48,12 +58,14 @@ pub fn create_user(
     })?;
 
   log::info!("new username {}", new_user_dto.username);
-  let dto = UserDto {
-    id: Option::from(msg),
+  let dto = ResponseUserDto {
+    id: id_user,
     username: new_user_dto.username.to_string(),
-    password: "".to_string(),
   };
-  Ok(Created(format!("/user/{}", msg), Option::from(Json(dto))))
+  Ok(Created(
+    format!("/user/{}", id_user),
+    Option::from(Json(dto)),
+  ))
 }
 
 /// Login a user. Checks if the username exist and if the password is the same.
@@ -69,6 +81,14 @@ pub fn create_user(
 /// # Return
 /// * 202 Accepted and the Jason Web Token (JWT).
 /// * 400 Bad request and the error message.
+#[utoipa::path(
+context_path = "/login",
+request_body = UserDto,
+responses(
+(status = 202, description = "Login correct", body = LoginDto),
+(status = 400, description = "Bad request")
+),
+)]
 #[post("/", format = "application/json", data = "<user_dto>")]
 pub fn login(
   us_state: State<Box<dyn UserService>>,
@@ -103,15 +123,22 @@ pub fn login(
   Ok(Accepted(Option::from(Json(dto))))
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Component)]
+#[component(example = json!({"username": "juan", "password": "password"}))]
 pub struct UserDto {
-  id: Option<i32>,
   username: String,
-  #[serde(skip_serializing)]
   password: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Component)]
+#[component(example = json!({"id": 1, "username": "juan"}))]
+pub struct ResponseUserDto {
+  id: i32,
+  username: String,
+}
+
+#[derive(Serialize, Component)]
+#[component(example = json!({"id": 1, "token": "xxx"}))]
 pub struct LoginDto {
   id: i32,
   token: String,

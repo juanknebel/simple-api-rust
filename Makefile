@@ -1,5 +1,5 @@
 .PHONY: all
-all: fmt ensure-deps test debug
+all: fmt deps test debug
 
 ### Create the database folder and the databases file for sqlite
 .PHONY: generate-database
@@ -8,8 +8,8 @@ generate-database:
 	mkdir database; touch database/testing_db.db; touch database/production_db.db
 
 ### Sync dependencies
-.PHONY: ensure-deps
-ensure-deps:
+.PHONY: deps
+deps:
 	@echo "=> Syncing dependencies"
 	cargo check
 
@@ -30,6 +30,7 @@ fmt:
 	rustfmt ./server/src/log/*.rs;
 	rustfmt ./server/src/model/repository/*.rs;
 	rustfmt ./server/src/model/*.rs;
+	rustfmt ./server/src/openapi/*.rs;
 
 ### Build with debug flags
 .PHONY: debug
@@ -38,8 +39,8 @@ debug:
 	cargo build
 
 ### Build release
-.PHONY: compile
-compile:
+.PHONY: release
+release:
 	@echo "=> Build release"
 	cargo build --release
 ### Run

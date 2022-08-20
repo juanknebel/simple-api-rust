@@ -10,6 +10,7 @@ mod auth;
 mod db;
 mod log;
 mod model;
+mod openapi;
 mod schema;
 
 use crate::{
@@ -26,9 +27,14 @@ use crate::{
     },
     user_service::{UserService, UserServiceImpl},
   },
+  openapi::swagger,
 };
+
 use application::{health_handler, message_handler, user_handler};
 use rocket::routes;
+use std::sync::Arc;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::Config;
 
 fn main() {
   // Set up the logger
@@ -57,6 +63,8 @@ fn main() {
     .manage(Box::new(authenticator) as Box<dyn Authenticator>)
     .manage(Box::new(user_service) as Box<dyn UserService>)
     .manage(Box::new(message_service) as Box<dyn MessageService>)
+    .manage(Arc::new(Config::from("/swagger/api-doc/openapi.json")))
+    .manage(swagger::ApiDoc::openapi())
     .mount("/", routes![health_handler::ping,])
     .mount("/users", routes![user_handler::create_user,])
     .mount("/login", routes![user_handler::login,])
@@ -67,6 +75,10 @@ fn main() {
         message_handler::get_message,
         message_handler::get_message_from
       ],
+    )
+    .mount(
+      "/swagger",
+      routes![swagger::serve_api_doc, swagger::serve_swagger],
     )
     .launch();
 }

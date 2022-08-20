@@ -1,18 +1,18 @@
-use rocket::http::hyper::StatusCode;
-use std::borrow::Borrow;
+use crate::{
+  application::error::{ApplicationResult, ErrorResponse, GenericResponse},
+  auth::middleware::AccessToken,
+  Authenticator, MessageService,
+};
 
-use crate::auth::middleware::AccessToken;
 use rocket::{
+  http::hyper::StatusCode,
   response::status::{Accepted, Created},
   State,
 };
 use rocket_contrib::json::Json;
 use serde::{Deserialize, Serialize};
-
-use crate::{
-  application::error::{ApplicationResult, ErrorResponse, GenericResponse},
-  Authenticator, MessageService,
-};
+use std::borrow::Borrow;
+use utoipa::Component;
 
 /// Send a message from one user to another one.
 ///
@@ -27,6 +27,18 @@ use crate::{
 /// * 201 Created and the id of the message inserted.
 /// * 400 Bad request and the error message.
 /// * 401 Unauthorized if the token isn't valid.
+#[utoipa::path(
+context_path = "/message",
+request_body = MessageDto,
+params(
+  ("x-access-token", header, description = "The jwt token access"),
+),
+responses(
+  (status = 201, description = "The message was created"),
+  (status = 400, description = "Bad request"),
+  (status = 401, description = "Unauthorized user")
+),
+)]
 #[post("/send", format = "application/json", data = "<msg_dto>")]
 pub fn send_message(
   msg_state: State<Box<dyn MessageService>>,
@@ -39,11 +51,7 @@ pub fn send_message(
   match authenticator.authorize(token.borrow(), msg_dto.from) {
     Ok(_) => {
       let msg_id = message_service
-        .create(
-          msg_dto.from,
-          msg_dto.to.unwrap(),
-          msg_dto.message.as_ref().unwrap().to_string(),
-        )
+        .create(msg_dto.from, msg_dto.to, msg_dto.message.to_string())
         .map_err(|err| {
           log::error!("error: {}", err.to_string());
           let err_msg = format!("Cannot insert the message because {}", err);
@@ -77,6 +85,18 @@ pub fn send_message(
 /// * 202 Accepted and the message.
 /// * 400 Bad request and the error message.
 /// * 401 Unauthorized if the token isn't valid (Not implemented yet).
+#[utoipa::path(
+context_path = "/message",
+params(
+("id" = i32, description = "The id of the message"),
+("x-access-token", header, description = "The token access"),
+),
+responses(
+(status = 202, description = "Accepted", body = ResponseMessageDto),
+(status = 400, description = "Bad request"),
+(status = 401, description = "Unauthorized user (Not implemented yet)")
+),
+)]
 #[get("/<id>", format = "application/json")]
 pub fn get_message(
   msg_state: State<Box<dyn MessageService>>,
@@ -113,19 +133,31 @@ pub fn get_message(
 /// * 202 Accepted and the a list of messages order by id in desc mode.
 /// * 400 Bad request and the error message.
 /// * 401 Unauthorized if the token isn't valid.
-#[post("/", format = "application/json", data = "<msg_dto>")]
+#[utoipa::path(
+context_path = "/message",
+request_body = SearchMessageDto,
+params(
+("x-access-token", header, description = "The token access"),
+),
+responses(
+(status = 202, description = "Accepted", body = ResponseMessageDto),
+(status = 400, description = "Bad request"),
+(status = 401, description = "Unauthorized user")
+),
+)]
+#[post("/", format = "application/json", data = "<search_dto>")]
 pub fn get_message_from(
   msg_state: State<Box<dyn MessageService>>,
   auth_state: State<Box<dyn Authenticator>>,
   token: AccessToken,
-  msg_dto: Json<MessageDto>,
+  search_dto: Json<SearchMessageDto>,
 ) -> ApplicationResult<Accepted<Json<Vec<ResponseMessageDto>>>> {
   let message_service = msg_state.inner();
   let authenticator = auth_state.inner();
-  match authenticator.authorize(token.borrow(), msg_dto.from) {
+  match authenticator.authorize(token.borrow(), search_dto.from) {
     Ok(_) => {
       let messages = message_service
-        .find(msg_dto.id.unwrap(), msg_dto.from, msg_dto.limit)
+        .find(search_dto.since, search_dto.from, search_dto.limit)
         .map_err(|err| {
           log::error!("error: {}", err.to_string());
           let err_msg = format!("Cannot retrieve the messages because {}", err);
@@ -152,16 +184,24 @@ pub fn get_message_from(
   }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Component)]
+#[component(example = json!({"from": 1, "to": 2, "message": "something"}))]
 pub struct MessageDto {
-  id: Option<i32>,
   from: i32,
-  to: Option<i32>,
-  message: Option<String>,
+  to: i32,
+  message: String,
+}
+
+#[derive(Deserialize, Component)]
+#[component(example = json!({"from": 1, "since": 1, "limit": 4}))]
+pub struct SearchMessageDto {
+  from: i32,
+  since: i32,
   limit: Option<i64>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Component)]
+#[component(example = json!({"id": 1, "to": 2, "message": "something"}))]
 pub struct ResponseMessageDto {
   #[serde(skip_serializing_if = "Option::is_none")]
   id: Option<i32>,
