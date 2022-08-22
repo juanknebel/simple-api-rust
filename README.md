@@ -15,9 +15,22 @@ For Openapi 3.0 and Swagger generation I found [utopia](https://github.com/juhak
 Make sure you setup **rust nightly** compiler to build the app.
 I strongly recommend to use [rustup](https://rustup.rs/) to configure it.
 To start using run the followings commands in order
+
+If you are not going to use diesel migration method, before running the app yo need to execute the sql scripts under
+the directory `./server/migrations` order by date of creation.
 ```bash
-make generate-database
-make generate-envs
+make generate-database;
+make generate-envs;
+make run
+```
+
+If you are going to use diesel migration method then follow this steps.
+```bash
+make generate-database;
+make generate-envs;
+cd server;
+diesel migration run;
+cd ..;
 make run
 ```
 
